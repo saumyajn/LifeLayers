@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">LifeLayers NYC and Jersey City discovery map</title>
+  <desc id="desc">A social preview image for LifeLayers showing a map-first local discovery interface.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#edf1ec" />
+      <stop offset="1" stop-color="#dce8df" />
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="22" stdDeviation="24" flood-color="#1b231f" flood-opacity="0.16" />
+    </filter>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)" />
+  <g filter="url(#shadow)">
+    <rect x="72" y="76" width="1056" height="478" rx="24" fill="#ffffff" stroke="#cfd8d1" />
+    <rect x="108" y="118" width="646" height="390" rx="18" fill="#d9e3d6" stroke="#becac1" />
+    <path d="M122 216 C236 174 278 248 388 210 C510 168 568 236 740 182" fill="none" stroke="#ffffff" stroke-width="18" opacity="0.9" />
+    <path d="M150 434 C286 384 342 448 474 404 C604 360 670 418 724 380" fill="none" stroke="#ffffff" stroke-width="16" opacity="0.86" />
+    <path d="M526 130 L722 508" stroke="#f8fbf7" stroke-width="20" opacity="0.86" />
+    <g font-family="Inter, Arial, sans-serif" font-size="18" font-weight="800" fill="#182020">
+      <rect x="192" y="184" width="126" height="36" rx="18" fill="#fffaf0" stroke="#d9ded8" />
+      <text x="214" y="208">Downtown JC</text>
+      <rect x="548" y="250" width="126" height="36" rx="18" fill="#fffaf0" stroke="#d9ded8" />
+      <text x="570" y="274">Chinatown</text>
+      <rect x="430" y="372" width="150" height="36" rx="18" fill="#fffaf0" stroke="#d9ded8" />
+      <text x="452" y="396">West Village</text>
+    </g>
+    <g>
+      <circle cx="266" cy="300" r="22" fill="#d9532f" stroke="#ffffff" stroke-width="6" />
+      <circle cx="594" cy="330" r="22" fill="#227c70" stroke="#ffffff" stroke-width="6" />
+      <circle cx="478" cy="232" r="22" fill="#7752a3" stroke="#ffffff" stroke-width="6" />
+      <circle cx="682" cy="420" r="22" fill="#2b68a8" stroke="#ffffff" stroke-width="6" />
+    </g>
+    <rect x="792" y="118" width="292" height="390" rx="18" fill="#fbfcfa" stroke="#d9ded8" />
+    <g font-family="Inter, Arial, sans-serif">
+      <text x="826" y="178" fill="#5f5d4d" font-size="18" font-weight="900">NYC + Jersey City</text>
+      <text x="826" y="236" fill="#182020" font-size="56" font-weight="950">LifeLayers</text>
+      <text x="826" y="286" fill="#182020" font-size="28" font-weight="850">Map-first local discovery</text>
+      <text x="826" y="336" fill="#66706b" font-size="22" font-weight="650">Restaurants, activities, memories, vibes, and community pulse in one readable place list.</text>
+      <rect x="826" y="408" width="94" height="42" rx="21" fill="#d9532f" />
+      <rect x="932" y="408" width="82" height="42" rx="21" fill="#227c70" />
+      <rect x="1026" y="408" width="42" height="42" rx="21" fill="#7752a3" />
+      <text x="854" y="436" fill="#ffffff" font-size="18" font-weight="900">Eat</text>
+      <text x="958" y="436" fill="#ffffff" font-size="18" font-weight="900">Do</text>
+    </g>
+  </g>
+</svg>
