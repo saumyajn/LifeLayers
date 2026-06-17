@@ -23,6 +23,7 @@ export type UserPreferences = {
   activeCity: CityId;
   priceFilter: Place["price"] | "all";
   vibeFilter: string;
+  subcategoryFilter: string;
   pulseFilter: Place["reddit"]["pulse"] | "all";
   sortMode: "signal" | "rating" | "reviews" | "name";
   savedOnly: boolean;

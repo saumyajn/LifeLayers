@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CityId, LayerId, Place, layers, neighborhoods, places } from "./data/places";
 import { CommandPalette } from "./components/CommandPalette";
 import {
-  LayerCoverageStrip,
+  ActiveFilterBar,
+  type ActiveFilterChip,
   LiveGoogleSearch,
   LiveSourceBar,
   MapToolbar,
@@ -33,14 +34,20 @@ import {
   filterMatches,
   getCityId,
   getErrorMessage,
+  getGoogleMapsUrl,
   isCityPreference,
   isLayerPreference,
   isPricePreference,
   isPulsePreference,
   isSortPreference,
+  layerSubcategoryOptions,
   layerMatches,
   planPresets,
+  priceOptions,
+  pulseOptions,
   sortPlaces,
+  sortOptions,
+  subcategoryMatches,
   textMatches,
   toExportPlace,
   type LiveStatus,
@@ -48,6 +55,7 @@ import {
   type PulseFilter,
   type ReviewStatus,
   type SortMode,
+  type SubcategoryFilter,
 } from "./lib/lifelayers";
 
 const googleApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
@@ -62,6 +70,7 @@ function App() {
   const [compareMode, setCompareMode] = useState(false);
   const [priceFilter, setPriceFilter] = useState<PriceFilter>("all");
   const [vibeFilter, setVibeFilter] = useState("all");
+  const [subcategoryFilter, setSubcategoryFilter] = useState<SubcategoryFilter>("all");
   const [pulseFilter, setPulseFilter] = useState<PulseFilter>("all");
   const [sortMode, setSortMode] = useState<SortMode>("signal");
   const [savedOnly, setSavedOnly] = useState(false);
@@ -85,13 +94,23 @@ function App() {
     loading: Boolean(googleApiKey),
   });
   const restoredUserRef = useRef<string | null>(null);
+  const resultListRef = useRef<HTMLElement | null>(null);
+  const hasMountedRef = useRef(false);
 
   const allPlaces = useMemo(() => {
     if (!googleApiKey || livePlaces.length === 0) return places;
 
-    const curatedReddit = places.filter((place) => place.layer === "reddit");
-    return [...curatedReddit, ...livePlaces];
+    return [...places, ...livePlaces];
   }, [livePlaces]);
+
+  const subcategoryOptions =
+    activeLayer === "all" ? [] : layerSubcategoryOptions[activeLayer] ?? [];
+  const activeSubcategory = subcategoryOptions.find((option) => option.id === subcategoryFilter);
+  const effectiveLiveSearchQuery = liveSearchQuery || activeSubcategory?.liveQuery || "";
+  const placesAreRefreshing = Boolean(googleApiKey && googleMapAvailable && liveStatus.loading);
+  const placesLoadingLabel = effectiveLiveSearchQuery
+    ? `Loading "${effectiveLiveSearchQuery}"`
+    : "Refreshing live places";
 
   const visiblePlaces = useMemo(
     () =>
@@ -101,6 +120,7 @@ function App() {
             cityMatches(place, activeCity) &&
             layerMatches(place, activeLayer) &&
             filterMatches(place, priceFilter, vibeFilter, pulseFilter) &&
+            subcategoryMatches(place, activeSubcategory) &&
             (!savedOnly || savedIds.includes(place.id)) &&
             (!query || textMatches(place, query)),
         )
@@ -109,6 +129,7 @@ function App() {
       allPlaces,
       activeCity,
       activeLayer,
+      activeSubcategory,
       priceFilter,
       vibeFilter,
       pulseFilter,
@@ -139,22 +160,6 @@ function App() {
 
     return counts;
   }, [allPlaces, activeCity, priceFilter, vibeFilter, pulseFilter]);
-
-  const visibleLayerCounts = useMemo(() => {
-    const counts: Record<LayerId, number> = {
-      eat: 0,
-      do: 0,
-      reddit: 0,
-      memory: 0,
-      vibe: 0,
-    };
-
-    visiblePlaces.forEach((place) => {
-      counts[place.layer] += 1;
-    });
-
-    return counts;
-  }, [visiblePlaces]);
 
   const availableVibes = useMemo(() => {
     const vibeSet = new Set<string>();
@@ -190,6 +195,7 @@ function App() {
       activeCity,
       priceFilter,
       vibeFilter,
+      subcategoryFilter,
       pulseFilter,
       sortMode,
       savedOnly,
@@ -201,6 +207,7 @@ function App() {
       activeCity,
       priceFilter,
       vibeFilter,
+      subcategoryFilter,
       pulseFilter,
       sortMode,
       savedOnly,
@@ -212,6 +219,131 @@ function App() {
   const topNeighborhoods = [...activeNeighborhoods]
     .sort((a, b) => b.score - a.score)
     .slice(0, compareMode ? 4 : 3);
+
+  const activePresetLabel = useMemo(() => {
+    const matchingPreset = planPresets.find(
+      (preset) =>
+        preset.query === query &&
+        preset.layer === activeLayer &&
+        preset.price === priceFilter &&
+        pulseFilter === "all" &&
+        vibeFilter === "all" &&
+        subcategoryFilter === "all" &&
+        !savedOnly &&
+        !liveSearchQuery,
+    );
+
+    return matchingPreset?.label;
+  }, [
+    activeLayer,
+    liveSearchQuery,
+    priceFilter,
+    pulseFilter,
+    query,
+    savedOnly,
+    subcategoryFilter,
+    vibeFilter,
+  ]);
+
+  function clearFilter(filterId: string) {
+    switch (filterId) {
+      case "city":
+        setActiveCity("all");
+        break;
+      case "layer":
+        setActiveLayer("all");
+        setSubcategoryFilter("all");
+        break;
+      case "subcategory":
+        setSubcategoryFilter("all");
+        break;
+      case "price":
+        setPriceFilter("all");
+        break;
+      case "vibe":
+        setVibeFilter("all");
+        break;
+      case "pulse":
+        setPulseFilter("all");
+        break;
+      case "query":
+        setQuery("");
+        break;
+      case "live":
+        setLiveSearchQuery("");
+        setLiveSearchDraft("");
+        break;
+      case "saved":
+        setSavedOnly(false);
+        break;
+      case "sort":
+        setSortMode("signal");
+        break;
+      default:
+        break;
+    }
+  }
+
+  const activeFilterChips = useMemo(() => {
+    const chips: ActiveFilterChip[] = [];
+    const cityLabel = cityOptions.find((city) => city.id === activeCity)?.label;
+    const layerLabel = layers.find((layer) => layer.id === activeLayer)?.label;
+    const priceLabel = priceOptions.find((price) => price.id === priceFilter)?.label;
+    const pulseLabel = pulseOptions.find((pulse) => pulse.id === pulseFilter)?.label;
+    const sortLabel = sortOptions.find((sort) => sort.id === sortMode)?.label;
+
+    if (activeCity !== "all" && cityLabel) chips.push({ id: "city", label: `City: ${cityLabel}`, onClear: () => clearFilter("city") });
+    if (activeLayer !== "all" && layerLabel) chips.push({ id: "layer", label: `Layer: ${layerLabel}`, onClear: () => clearFilter("layer") });
+    if (priceFilter !== "all" && priceLabel) chips.push({ id: "price", label: `Price: ${priceLabel}`, onClear: () => clearFilter("price") });
+    if (activeSubcategory) chips.push({ id: "subcategory", label: `Option: ${activeSubcategory.label}`, onClear: () => clearFilter("subcategory") });
+    if (vibeFilter !== "all") chips.push({ id: "vibe", label: `Vibe: ${vibeFilter}`, onClear: () => clearFilter("vibe") });
+    if (pulseFilter !== "all" && pulseLabel) chips.push({ id: "pulse", label: `Pulse: ${pulseLabel}`, onClear: () => clearFilter("pulse") });
+    if (query) chips.push({ id: "query", label: `Search: ${query}`, onClear: () => clearFilter("query") });
+    if (liveSearchQuery) chips.push({ id: "live", label: `Live: ${liveSearchQuery}`, onClear: () => clearFilter("live") });
+    if (savedOnly) chips.push({ id: "saved", label: "Saved only", onClear: () => clearFilter("saved") });
+    if (sortMode !== "signal" && sortLabel) chips.push({ id: "sort", label: `Sort: ${sortLabel}`, onClear: () => clearFilter("sort") });
+
+    return chips;
+  }, [
+    activeCity,
+    activeLayer,
+    activeSubcategory,
+    liveSearchQuery,
+    priceFilter,
+    pulseFilter,
+    query,
+    savedOnly,
+    sortMode,
+    vibeFilter,
+  ]);
+
+  const filterSignature = useMemo(
+    () =>
+      [
+        activeCity,
+        activeLayer,
+        priceFilter,
+        subcategoryFilter,
+        vibeFilter,
+        pulseFilter,
+        sortMode,
+        savedOnly ? "saved" : "all",
+        query,
+        liveSearchQuery,
+      ].join("|"),
+    [
+      activeCity,
+      activeLayer,
+      liveSearchQuery,
+      priceFilter,
+      pulseFilter,
+      query,
+      savedOnly,
+      sortMode,
+      subcategoryFilter,
+      vibeFilter,
+    ],
+  );
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -262,6 +394,9 @@ function App() {
             }
             if (typeof storedPreferences.vibeFilter === "string") {
               setVibeFilter(storedPreferences.vibeFilter);
+            }
+            if (typeof storedPreferences.subcategoryFilter === "string") {
+              setSubcategoryFilter(storedPreferences.subcategoryFilter);
             }
             if (isPulsePreference(storedPreferences.pulseFilter)) {
               setPulseFilter(storedPreferences.pulseFilter);
@@ -324,6 +459,28 @@ function App() {
     return () => window.clearTimeout(timeoutId);
   }, [actionStatus]);
 
+  useEffect(() => {
+    if (subcategoryFilter === "all") return;
+    if (subcategoryOptions.some((option) => option.id === subcategoryFilter)) return;
+    setSubcategoryFilter("all");
+  }, [subcategoryFilter, subcategoryOptions]);
+
+  useEffect(() => {
+    if (!hasMountedRef.current) {
+      hasMountedRef.current = true;
+      return;
+    }
+
+    if (!visiblePlaces.length) return;
+
+    window.requestAnimationFrame(() => {
+      resultListRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+  }, [filterSignature, visiblePlaces.length]);
+
   const toggleSaved = (placeId: string) => {
     setSavedIds((current) =>
       current.includes(placeId)
@@ -338,24 +495,34 @@ function App() {
   };
 
   const resetFilters = () => {
+    setActiveCity("all");
     setActiveLayer("all");
+    setSubcategoryFilter("all");
     setPriceFilter("all");
     setVibeFilter("all");
     setPulseFilter("all");
     setSavedOnly(false);
     setQuery("");
+    setLiveSearchDraft("");
+    setLiveSearchQuery("");
     setSortMode("signal");
   };
 
   const applyPreset = (preset: (typeof planPresets)[number]) => {
     setQuery(preset.query);
     setActiveLayer(preset.layer);
+    setSubcategoryFilter("all");
     setPriceFilter(preset.price);
     setPulseFilter("all");
     setVibeFilter("all");
     setSavedOnly(false);
     setLiveSearchDraft("");
     setLiveSearchQuery("");
+  };
+
+  const handleLayerChange = (layer: LayerId | "all") => {
+    setActiveLayer(layer);
+    setSubcategoryFilter("all");
   };
 
   const runLiveGoogleSearch = () => {
@@ -367,6 +534,17 @@ function App() {
   const clearLiveGoogleSearch = () => {
     setLiveSearchDraft("");
     setLiveSearchQuery("");
+  };
+
+  const openSavedPlaceInGoogleMaps = (place: Place) => {
+    const openedWindow = window.open(getGoogleMapsUrl(place), "_blank", "noopener,noreferrer");
+    if (openedWindow) {
+      openedWindow.opener = null;
+      setActionStatus(`Opening ${place.name} in Google Maps.`);
+      return;
+    }
+
+    setActionStatus("Allow popups to open saved places in Google Maps.");
   };
 
   const handleGoogleMapUnavailable = useCallback((message: string) => {
@@ -498,6 +676,7 @@ function App() {
         price: priceFilter,
         vibe: vibeFilter,
         pulse: pulseFilter,
+        subcategory: subcategoryFilter,
         sort: sortMode,
         savedOnly,
         query,
@@ -572,6 +751,8 @@ function App() {
           layerCounts={layerCounts}
           availableVibes={availableVibes}
           priceFilter={priceFilter}
+          subcategoryFilter={subcategoryFilter}
+          subcategoryOptions={subcategoryOptions}
           vibeFilter={vibeFilter}
           pulseFilter={pulseFilter}
           sortMode={sortMode}
@@ -582,14 +763,15 @@ function App() {
           preferencesReady={preferencesReady}
           onSignIn={handleGoogleSignIn}
           onSignOut={handleSignOut}
-          onLayerChange={setActiveLayer}
+          onLayerChange={handleLayerChange}
+          onSubcategoryChange={setSubcategoryFilter}
           onPriceChange={setPriceFilter}
           onVibeChange={setVibeFilter}
           onPulseChange={setPulseFilter}
           onSortChange={setSortMode}
           onSavedOnlyChange={setSavedOnly}
           onResetFilters={resetFilters}
-          onPickSavedPlace={setSelectedId}
+          onPickSavedPlace={openSavedPlaceInGoogleMaps}
         />
 
         <section className="map-stage" aria-label="Interactive LifeLayers map">
@@ -605,25 +787,33 @@ function App() {
             onExportJson={exportJson}
           />
 
-          <PresetRow presets={planPresets} onApplyPreset={applyPreset} />
-
-          <LiveSourceBar status={liveStatus} />
-
-          <LayerCoverageStrip
-            activeLayer={activeLayer}
-            counts={visibleLayerCounts}
-            liveCount={visiblePlaces.filter((place) => place.source === "google").length}
-            onPickLayer={setActiveLayer}
+          <PresetRow
+            presets={planPresets}
+            activePresetLabel={activePresetLabel}
+            onApplyPreset={applyPreset}
           />
 
-          <LiveGoogleSearch
-            value={liveSearchDraft}
-            activeQuery={liveSearchQuery}
-            disabled={!googleApiKey}
-            onChange={setLiveSearchDraft}
-            onSubmit={runLiveGoogleSearch}
-            onClear={clearLiveGoogleSearch}
+          <ActiveFilterBar
+            chips={activeFilterChips}
+            activePresetLabel={activePresetLabel}
+            resultCount={visiblePlaces.length}
+            loading={placesAreRefreshing}
+            loadingLabel={placesLoadingLabel}
+            onResetFilters={resetFilters}
           />
+
+          <div className="map-utility-row">
+            <LiveSourceBar status={liveStatus} />
+
+            <LiveGoogleSearch
+              value={liveSearchDraft}
+              activeQuery={liveSearchQuery}
+              disabled={!googleApiKey}
+              onChange={setLiveSearchDraft}
+              onSubmit={runLiveGoogleSearch}
+              onClear={clearLiveGoogleSearch}
+            />
+          </div>
 
           <div className="discovery-layout">
             {googleApiKey && googleMapAvailable ? (
@@ -631,7 +821,7 @@ function App() {
                 apiKey={googleApiKey}
                 activeCity={activeCity}
                 activeLayer={activeLayer}
-                liveSearchQuery={liveSearchQuery}
+                liveSearchQuery={effectiveLiveSearchQuery}
                 places={visiblePlaces}
                 selectedPlace={selectedPlace}
                 onPickPlace={(place) => setSelectedId(place.id)}
@@ -654,6 +844,9 @@ function App() {
               places={visiblePlaces}
               selectedId={selectedPlace.id}
               savedIds={savedIds}
+              resultListRef={resultListRef}
+              loading={placesAreRefreshing}
+              loadingLabel={placesLoadingLabel}
               onPick={(place) => setSelectedId(place.id)}
               onSave={(place) => toggleSaved(place.id)}
             />

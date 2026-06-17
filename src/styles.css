@@ -408,6 +408,16 @@ kbd {
   text-align: left;
 }
 
+.saved-list button:hover {
+  border-color: rgba(34, 124, 112, 0.28);
+  background: #eef6f2;
+}
+
+.saved-list button small {
+  color: #227c70;
+  font-weight: 850;
+}
+
 .empty-copy {
   margin-bottom: 0;
   color: var(--muted);
@@ -501,6 +511,13 @@ kbd {
   color: var(--ink);
   font-weight: 850;
   white-space: nowrap;
+}
+
+.preset-row button.active {
+  border-color: rgba(31, 122, 109, 0.34);
+  background: #15201f;
+  color: #fffaf0;
+  box-shadow: inset 0 0 0 1px rgba(255, 250, 240, 0.22);
 }
 
 .text-action {
@@ -1060,6 +1077,7 @@ kbd {
   max-height: none;
   overflow: auto;
   padding: 10px;
+  scroll-margin-top: 112px;
 }
 
 .result-card {
@@ -1086,6 +1104,15 @@ kbd {
   background: transparent;
   color: var(--ink);
   text-align: left;
+}
+
+.result-photo {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent), #ffffff 86%);
+  object-fit: cover;
 }
 
 .result-main strong {
@@ -1215,6 +1242,25 @@ meter {
       rgba(30, 37, 37, 0.08) 20px
     ),
     var(--accent);
+}
+
+.place-visual img {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.place-visual.has-photo::after {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  content: "";
+  background:
+    linear-gradient(to bottom, rgba(24, 32, 32, 0.12), rgba(24, 32, 32, 0.52)),
+    linear-gradient(to right, rgba(24, 32, 32, 0.18), transparent 54%);
 }
 
 .place-visual span,
@@ -1944,6 +1990,98 @@ h1 {
   background: #fbfcfa;
 }
 
+.active-filter-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 9px 10px;
+  border: 1px solid rgba(31, 122, 109, 0.18);
+  border-radius: 9px;
+  background: #eef6f2;
+}
+
+.active-filter-bar .eyebrow {
+  margin-bottom: 5px;
+}
+
+.active-filter-chips,
+.active-filter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.active-filter-chips span,
+.active-filter-chips button,
+.active-filter-actions strong {
+  min-height: 28px;
+  padding: 6px 9px;
+  border: 1px solid rgba(24, 32, 32, 0.1);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--ink);
+  font-size: 0.75rem;
+  font-weight: 900;
+  line-height: 1.15;
+}
+
+.active-filter-chips button {
+  cursor: pointer;
+}
+
+.active-filter-chips button::after {
+  content: " clear";
+  color: #227c70;
+  font-size: 0.68rem;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.active-filter-chips .active-preset-chip {
+  border-color: rgba(31, 122, 109, 0.3);
+  background: #15201f;
+  color: #fffaf0;
+}
+
+.active-filter-actions {
+  justify-content: end;
+}
+
+.active-filter-actions strong {
+  background: #dfece5;
+}
+
+.filter-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 28px;
+  padding: 6px 9px;
+  border: 1px solid rgba(34, 124, 112, 0.22);
+  border-radius: 999px;
+  background: #ffffff;
+  color: #227c70;
+  font-size: 0.75rem;
+  font-weight: 950;
+}
+
+.mini-spinner {
+  width: 13px;
+  height: 13px;
+  border: 2px solid rgba(34, 124, 112, 0.18);
+  border-top-color: #227c70;
+  border-radius: 50%;
+  animation: spin 700ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .source-bar {
   padding: 8px 10px;
 }
@@ -2032,6 +2170,22 @@ h1 {
 
 .results-heading {
   padding: 10px 12px;
+}
+
+.results-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 12px 0;
+  padding: 9px 10px;
+  border: 1px solid rgba(34, 124, 112, 0.18);
+  border-radius: 9px;
+  background: #eef6f2;
+  color: var(--ink);
+}
+
+.results-loading strong {
+  font-size: 0.82rem;
 }
 
 .result-card-grid {
@@ -2333,15 +2487,43 @@ body {
   z-index: 1;
 }
 
-.discovery-layout {
+.map-utility-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.72fr) minmax(360px, 1.28fr);
+  gap: 8px;
+  align-items: stretch;
+}
+
+.map-utility-row .source-bar,
+.map-utility-row .live-search-panel {
+  height: 100%;
+}
+
+.map-utility-row .source-bar {
+  align-content: center;
+}
+
+.map-utility-row .live-search-panel {
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: minmax(480px, 58dvh) auto;
+}
+
+.map-utility-row .active-query {
+  display: none;
+}
+
+.discovery-layout {
+  grid-template-columns: minmax(420px, 1fr) minmax(390px, 480px);
+  grid-template-rows: auto;
+  align-items: start;
   min-height: 0;
   overflow: visible;
 }
 
 .discovery-layout > .city-map,
 .google-map-shell {
+  position: sticky;
+  top: 90px;
+  height: min(620px, calc(100dvh - 112px));
   min-height: 480px;
 }
 
@@ -2465,8 +2647,12 @@ body {
     top: 118px;
   }
 
+  .map-utility-row {
+    grid-template-columns: 1fr;
+  }
+
   .discovery-layout {
-    grid-template-rows: minmax(450px, 54dvh) auto;
+    grid-template-columns: minmax(390px, 1fr) minmax(360px, 430px);
   }
 }
 
@@ -2485,24 +2671,57 @@ body {
     grid-template-columns: 1fr;
   }
 
+  .left-rail {
+    order: 1;
+  }
+
+  .map-stage {
+    order: 2;
+  }
+
   .discovery-layout {
+    grid-template-columns: 1fr;
     grid-template-rows: auto auto;
+    order: 2;
   }
 
   .discovery-layout > .city-map,
   .google-map-shell {
+    order: 2;
+    position: relative;
+    top: auto;
+    height: auto;
     min-height: 420px;
   }
 
+  .map-utility-row {
+    order: 3;
+  }
+
+  .results-board {
+    order: 1;
+  }
+
   .result-card-grid {
-    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column;
+    max-height: min(720px, 80dvh);
+    overflow: auto;
     padding: 10px;
+  }
+
+  .result-card {
+    flex: 0 0 auto;
   }
 }
 
 @media (max-width: 560px) {
   .app-shell {
     padding: 8px;
+  }
+
+  .topbar {
+    gap: 10px;
   }
 
   .topbar,
@@ -2512,12 +2731,39 @@ body {
     border-radius: 8px;
   }
 
+  .filter-panel select,
+  .live-search-panel input,
+  .live-search-panel button,
+  .map-actions button,
+  .preset-row button,
+  .saved-list button {
+    min-height: 44px;
+  }
+
   .results-heading {
     align-items: start;
   }
 
-  .result-card {
-    min-height: 0;
+  .active-filter-bar {
+    grid-template-columns: 1fr;
+    padding: 10px;
+  }
+
+  .active-filter-actions {
+    justify-content: start;
+  }
+
+  .active-filter-chips,
+  .active-filter-actions {
+    gap: 7px;
+  }
+
+  .active-filter-chips span,
+  .active-filter-chips button,
+  .active-filter-actions strong,
+  .filter-loading {
+    min-height: 32px;
+    max-width: 100%;
   }
 
   .result-topline {

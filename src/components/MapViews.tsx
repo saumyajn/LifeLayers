@@ -239,6 +239,7 @@ type GoogleSearchSpec = {
   city: "NYC" | "Jersey City";
   cityName: string;
   query: string;
+  searchTag?: string;
   center: { lat: number; lng: number; zoom: number };
   limit: number;
   radius: number;
@@ -272,6 +273,7 @@ function getSearchSpecs(
       city: city.city,
       cityName: city.name,
       query: `${trimmedSearch} ${city.name}`,
+      searchTag: trimmedSearch,
       center: mapPresets[city.id],
       limit: 60,
       radius: city.id === "nyc" ? 15000 : 7000,
@@ -311,6 +313,7 @@ function getSearchSpecs(
         city: city.city,
         cityName: city.name,
         query: `${query} in ${city.name}`,
+        searchTag: query,
         center: mapPresets[city.id],
         limit: activeLayer === "all" ? 60 : 60,
         radius: city.id === "nyc" ? 13500 : 6500,
@@ -324,6 +327,7 @@ function placeFromGoogleResult(
   result: Record<string, any>,
   layer: LayerId,
   city: "NYC" | "Jersey City",
+  searchTag?: string,
 ): Place | null {
   const location = result.geometry?.location;
   const lat = typeof location?.lat === "function" ? location.lat() : undefined;
@@ -344,6 +348,14 @@ function placeFromGoogleResult(
   const neighborhood = estimateNeighborhood(lat, lng, city);
   const signal = googleSignal(rating, total);
   const name = String(result.name);
+  const firstPhoto = Array.isArray(result.photos) ? result.photos[0] : undefined;
+  const photoUrl =
+    typeof firstPhoto?.getUrl === "function"
+      ? firstPhoto.getUrl({ maxWidth: 960, maxHeight: 640 })
+      : undefined;
+  const photoAttributions = Array.isArray(firstPhoto?.html_attributions)
+    ? firstPhoto.html_attributions.map((attribution: unknown) => String(attribution))
+    : undefined;
 
   return {
     id: `google-${result.place_id ?? `${name}-${lat}-${lng}`}`,
@@ -353,10 +365,12 @@ function placeFromGoogleResult(
     layer,
     kind,
     price,
-    bestFor:
-      layer === "eat"
-        ? ["live Google result", "nearby food", price === "$" ? "budget" : "dining"]
-        : ["live Google result", "nearby plan", kind],
+    bestFor: [
+      "live Google result",
+      layer === "eat" ? "nearby food" : "nearby plan",
+      layer === "eat" ? (price === "$" ? "budget" : "dining") : kind,
+      searchTag,
+    ].filter((tag): tag is string => Boolean(tag)),
     vibe: [layer === "eat" ? "food" : "discoverable", rating && rating >= 4.5 ? "high-rated" : "active"],
     x: 0,
     y: 0,
@@ -364,6 +378,8 @@ function placeFromGoogleResult(
     lng,
     source: "google",
     googlePlaceId: result.place_id,
+    photoUrl,
+    photoAttributions,
     rating,
     userRatingsTotal: total,
     address: result.formatted_address ?? result.vicinity,
@@ -415,7 +431,7 @@ function fetchGoogleTextSearch(
       pageCount += 1;
       collected.push(
         ...results
-          .map((result) => placeFromGoogleResult(result, spec.layer, spec.city))
+          .map((result) => placeFromGoogleResult(result, spec.layer, spec.city, spec.searchTag))
           .filter((place): place is Place => Boolean(place)),
       );
 
@@ -550,6 +566,7 @@ export function GoogleLiveMap({
     }
 
     let cancelled = false;
+    onLivePlaces([]);
     onStatus({
       source: "google",
       message: "Fetching live Google Places result pages...",
@@ -557,32 +574,44 @@ export function GoogleLiveMap({
       loading: true,
     });
 
-    Promise.all(specs.map((spec) => fetchGoogleTextSearch(service, google, spec))).then((groups) => {
-      if (cancelled) return;
+    Promise.all(specs.map((spec) => fetchGoogleTextSearch(service, google, spec)))
+      .then((groups) => {
+        if (cancelled) return;
 
-      const seen = new Set<string>();
-      const nextPlaces = groups
-        .flat()
-        .filter((place) => {
-          const key = place.googlePlaceId ?? place.id;
-          if (seen.has(key)) return false;
-          seen.add(key);
-          return true;
-        })
-        .sort((a, b) => b.signal - a.signal);
+        const seen = new Set<string>();
+        const nextPlaces = groups
+          .flat()
+          .filter((place) => {
+            const key = place.googlePlaceId ?? place.id;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          })
+          .sort((a, b) => b.signal - a.signal);
 
-      onLivePlaces(nextPlaces);
-      onStatus({
-        source: "google",
-        message: nextPlaces.length
-          ? liveSearchQuery
-            ? `Live Google results for "${liveSearchQuery}" loaded.`
-            : "Live Google Places pages loaded and sorted."
-          : "No Google Places returned for this layer. Showing curated fallback.",
-        count: nextPlaces.length,
-        loading: false,
+        onLivePlaces(nextPlaces);
+        onStatus({
+          source: "google",
+          message: nextPlaces.length
+            ? liveSearchQuery
+              ? `Live Google results for "${liveSearchQuery}" loaded.`
+              : "Live Google Places pages loaded and sorted."
+            : "No Google Places returned for this layer. Showing curated fallback.",
+          count: nextPlaces.length,
+          loading: false,
+        });
+      })
+      .catch((error) => {
+        if (cancelled) return;
+
+        onLivePlaces([]);
+        onStatus({
+          source: "google",
+          message: getErrorMessage(error),
+          count: 0,
+          loading: false,
+        });
       });
-    });
 
     return () => {
       cancelled = true;

@@ -17,6 +17,8 @@ export type Place = {
   lng: number;
   source?: "curated" | "google";
   googlePlaceId?: string;
+  photoUrl?: string;
+  photoAttributions?: string[];
   rating?: number;
   userRatingsTotal?: number;
   address?: string;

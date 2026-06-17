@@ -37,13 +37,16 @@ export function PlaceDetail({
   return (
     <article className="place-detail">
       <div
-        className="place-visual"
+        className={place.photoUrl ? "place-visual has-photo" : "place-visual"}
         style={
           {
             "--accent": layerColor[place.layer],
           } as CSSProperties
         }
       >
+        {place.photoUrl && (
+          <img src={place.photoUrl} alt="" loading="lazy" />
+        )}
         <span>{place.kind}</span>
         <strong>{place.neighborhood}</strong>
       </div>

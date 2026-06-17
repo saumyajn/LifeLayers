@@ -9,9 +9,11 @@ import {
   priceOptions,
   pulseOptions,
   sortOptions,
+  type LayerSubcategoryOption,
   type PriceFilter,
   type PulseFilter,
   type SortMode,
+  type SubcategoryFilter,
 } from "../lib/lifelayers";
 
 type SidebarProps = {
@@ -23,6 +25,8 @@ type SidebarProps = {
   layerCounts: Record<LayerId, number>;
   availableVibes: string[];
   priceFilter: PriceFilter;
+  subcategoryFilter: SubcategoryFilter;
+  subcategoryOptions: LayerSubcategoryOption[];
   vibeFilter: string;
   pulseFilter: PulseFilter;
   sortMode: SortMode;
@@ -34,13 +38,14 @@ type SidebarProps = {
   onSignIn: () => void;
   onSignOut: () => void;
   onLayerChange: (layer: LayerId | "all") => void;
+  onSubcategoryChange: (subcategory: SubcategoryFilter) => void;
   onPriceChange: (price: PriceFilter) => void;
   onVibeChange: (vibe: string) => void;
   onPulseChange: (pulse: PulseFilter) => void;
   onSortChange: (sort: SortMode) => void;
   onSavedOnlyChange: (savedOnly: boolean) => void;
   onResetFilters: () => void;
-  onPickSavedPlace: (placeId: string) => void;
+  onPickSavedPlace: (place: Place) => void;
 };
 
 export function Sidebar({
@@ -52,6 +57,8 @@ export function Sidebar({
   layerCounts,
   availableVibes,
   priceFilter,
+  subcategoryFilter,
+  subcategoryOptions,
   vibeFilter,
   pulseFilter,
   sortMode,
@@ -63,6 +70,7 @@ export function Sidebar({
   onSignIn,
   onSignOut,
   onLayerChange,
+  onSubcategoryChange,
   onPriceChange,
   onVibeChange,
   onPulseChange,
@@ -123,6 +131,23 @@ export function Sidebar({
             Reset
           </button>
         </div>
+
+        {subcategoryOptions.length > 0 && (
+          <label>
+            Layer option
+            <select
+              value={subcategoryFilter}
+              onChange={(event) => onSubcategoryChange(event.target.value)}
+            >
+              <option value="all">Any option</option>
+              {subcategoryOptions.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
 
         <label>
           Price
@@ -195,9 +220,13 @@ export function Sidebar({
         <div className="saved-list">
           {savedPlaces.length ? (
             savedPlaces.map((place) => (
-              <button key={place.id} onClick={() => onPickSavedPlace(place.id)}>
+              <button
+                key={place.id}
+                onClick={() => onPickSavedPlace(place)}
+                aria-label={`Open ${place.name} in Google Maps`}
+              >
                 <span>{place.name}</span>
-                <small>{place.neighborhood}</small>
+                <small>{place.neighborhood} - Open in Google Maps</small>
               </button>
             ))
           ) : (

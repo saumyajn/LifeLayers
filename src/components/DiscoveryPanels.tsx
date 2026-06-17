@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import type { CSSProperties, Ref } from "react";
 import type { LayerId, Neighborhood, Place } from "../data/places";
 import { layers } from "../data/places";
 import { layerColor, type LiveStatus, type PlanPreset } from "../lib/lifelayers";
@@ -115,24 +115,42 @@ export function ResultsBoard({
   places: visiblePlaces,
   selectedId,
   savedIds,
+  resultListRef,
+  loading,
+  loadingLabel,
   onPick,
   onSave,
 }: {
   places: Place[];
   selectedId: string;
   savedIds: string[];
+  resultListRef?: Ref<HTMLElement>;
+  loading: boolean;
+  loadingLabel: string;
   onPick: (place: Place) => void;
   onSave: (place: Place) => void;
 }) {
   return (
-    <section className="results-board" aria-label="Filtered place results">
+    <section
+      className="results-board"
+      aria-busy={loading}
+      aria-label="Filtered place results"
+      ref={resultListRef}
+    >
       <div className="results-heading">
         <div>
           <p className="eyebrow">Place directory</p>
           <h3>{visiblePlaces.length} places matching the map</h3>
         </div>
-        <small>Full list stays readable below the map, sorted by your filters.</small>
+        <small>Full list stays visible beside the map, sorted by your filters.</small>
       </div>
+
+      {loading && (
+        <div className="results-loading" role="status">
+          <span className="mini-spinner" aria-hidden="true" />
+          <strong>{loadingLabel}</strong>
+        </div>
+      )}
 
       {visiblePlaces.length ? (
         <div className="result-card-grid">
@@ -154,6 +172,14 @@ export function ResultsBoard({
                 style={{ "--accent": layerColor[place.layer] } as CSSProperties}
               >
                 <button className="result-main" onClick={() => onPick(place)}>
+                  {place.photoUrl && (
+                    <img
+                      className="result-photo"
+                      src={place.photoUrl}
+                      alt=""
+                      loading="lazy"
+                    />
+                  )}
                   <span className="result-topline">
                     <span className="result-layer">{layer?.label ?? place.layer}</span>
                     <span>{place.source === "google" ? "Google Places" : "Curated local"}</span>
@@ -178,11 +204,75 @@ export function ResultsBoard({
           })}
         </div>
       ) : (
-        <div className="empty-results">
-          <strong>No places match those filters.</strong>
-          <p>Try clearing one filter or picking a broader planning preset.</p>
+        <div className={loading ? "empty-results loading-empty" : "empty-results"}>
+          <strong>{loading ? "Refreshing places..." : "No places match those filters."}</strong>
+          <p>
+            {loading
+              ? "Google Places is checking this filter combination now."
+              : "Try clearing one filter or picking a broader planning preset."}
+          </p>
         </div>
       )}
+    </section>
+  );
+}
+
+export type ActiveFilterChip = {
+  id: string;
+  label: string;
+  onClear?: () => void;
+};
+
+export function ActiveFilterBar({
+  chips,
+  activePresetLabel,
+  resultCount,
+  loading,
+  loadingLabel,
+  onResetFilters,
+}: {
+  chips: ActiveFilterChip[];
+  activePresetLabel?: string;
+  resultCount: number;
+  loading: boolean;
+  loadingLabel: string;
+  onResetFilters: () => void;
+}) {
+  return (
+    <section className="active-filter-bar" aria-busy={loading} aria-label="Active filters">
+      <div>
+        <p className="eyebrow">Active filters</p>
+        <div className="active-filter-chips">
+          {activePresetLabel && <span className="active-preset-chip">Preset: {activePresetLabel}</span>}
+          {chips.length ? (
+            chips.map((chip) =>
+              chip.onClear ? (
+                <button key={chip.id} type="button" onClick={chip.onClear} aria-label={`Clear ${chip.label}`}>
+                  {chip.label}
+                </button>
+              ) : (
+                <span key={chip.id}>{chip.label}</span>
+              ),
+            )
+          ) : (
+            <span>No filters active</span>
+          )}
+        </div>
+      </div>
+      <div className="active-filter-actions">
+        {loading && (
+          <span className="filter-loading" role="status">
+            <span className="mini-spinner" aria-hidden="true" />
+            {loadingLabel}
+          </span>
+        )}
+        <strong>{loading ? "Updating..." : `${resultCount} places`}</strong>
+        {(chips.length > 0 || activePresetLabel) && (
+          <button className="text-action" onClick={onResetFilters}>
+            Clear
+          </button>
+        )}
+      </div>
     </section>
   );
 }
@@ -260,15 +350,22 @@ export function MapToolbar({
 
 export function PresetRow({
   presets,
+  activePresetLabel,
   onApplyPreset,
 }: {
   presets: PlanPreset[];
+  activePresetLabel?: string;
   onApplyPreset: (preset: PlanPreset) => void;
 }) {
   return (
     <div className="preset-row" aria-label="Planning presets">
       {presets.map((preset) => (
-        <button key={preset.label} onClick={() => onApplyPreset(preset)}>
+        <button
+          key={preset.label}
+          className={activePresetLabel === preset.label ? "active" : ""}
+          aria-pressed={activePresetLabel === preset.label}
+          onClick={() => onApplyPreset(preset)}
+        >
           {preset.label}
         </button>
       ))}
