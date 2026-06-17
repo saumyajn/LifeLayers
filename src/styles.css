@@ -1270,8 +1270,8 @@ kbd {
 
 .result-meta span,
 .result-meta button {
-  min-height: 28px;
-  padding: 0 8px;
+  
+  padding: 2px 8px;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: #f4f0e8;
@@ -2728,7 +2728,7 @@ body {
 
 .result-meta span,
 .result-meta button {
-  min-height: 30px;
+  min-height: 20px;
 }
 
 .result-meta button {
