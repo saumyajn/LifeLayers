@@ -1270,7 +1270,6 @@ kbd {
 
 .result-meta span,
 .result-meta button {
-  
   padding: 2px 8px;
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -1641,7 +1640,6 @@ meter {
 
 .palette-search button,
 .quick-searches button {
-
   padding: 0 10px;
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -2275,6 +2273,26 @@ h1 {
   bottom: 14px;
   border-radius: 8px;
   box-shadow: none;
+}
+
+.advanced-map-marker {
+  width: 28px;
+  height: 28px;
+  border: 2px solid #fffaf0;
+  border-radius: 999px;
+  background: var(--marker-color, #227c70);
+  color: #ffffff;
+  box-shadow: 0 8px 18px rgba(30, 37, 37, 0.28);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 950;
+  line-height: 1;
+  transform: scale(var(--marker-scale, 1));
+}
+
+.advanced-map-marker.selected {
+  outline: 3px solid rgba(255, 250, 240, 0.72);
 }
 
 .results-board {

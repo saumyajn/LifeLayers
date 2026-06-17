@@ -78,7 +78,13 @@ export function PlaceDetail({
         </div>
         <div>
           <span>
-            {place.openNow === undefined ? place.reddit.pulse : place.openNow ? "Open" : "Check"}
+            {place.source === "google" && place.openNow === undefined
+              ? "Hours unavailable"
+              : place.openNow === undefined
+                ? place.reddit.pulse
+                : place.openNow
+                  ? "Open"
+                  : "Check"}
           </span>
           <small>{place.source === "google" ? "Hours" : "Pulse"}</small>
         </div>

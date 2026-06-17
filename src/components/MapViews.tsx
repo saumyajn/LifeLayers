@@ -4,20 +4,24 @@ import type { CityId, LayerId, Neighborhood, Place } from "../data/places";
 import { layers } from "../data/places";
 import {
   clampZoom,
-  estimateNeighborhood,
   getErrorMessage,
-  googleSignal,
-  inferLayerFromSearch,
   layerColor,
   lngLatToWorld,
   mapPresetForCity,
   mapPresets,
-  priceFromGoogle,
   radiusMilesToMeters,
   tileSize,
   type LiveStatus,
   type UserLocation,
 } from "../lib/lifelayers";
+import { getGoogleMaps, loadGoogleMaps } from "../services/google/googleMapsLoader";
+import {
+  clearAdvancedPlaceMarkers,
+  createAdvancedPlaceMarkers,
+} from "../services/google/markerService";
+import { searchGooglePlaces } from "../services/google/placesService";
+import type { GoogleMapLike, ManagedGoogleMarker } from "../services/google/placeTypes";
+import { readLatLng } from "../services/google/placeTypes";
 export function RealMap({
   activeCity,
   neighborhoods,
@@ -194,325 +198,9 @@ export function RealMap({
   );
 }
 
-export function loadGoogleMaps(apiKey: string) {
-  const win = window as Window & {
-    google?: {
-      maps?: unknown;
-    };
-    initLifeLayersGoogle?: () => void;
-    gm_authFailure?: () => void;
-    lifeLayersGooglePromise?: Promise<void>;
-  };
-
-  if (win.google?.maps) return Promise.resolve();
-  if (win.lifeLayersGooglePromise) return win.lifeLayersGooglePromise;
-
-  win.lifeLayersGooglePromise = new Promise((resolve, reject) => {
-    const timeoutId = window.setTimeout(() => {
-      reject(
-        new Error(
-          "Google Maps did not finish loading. Check API restrictions, billing, and enabled APIs.",
-        ),
-      );
-    }, 9000);
-
-    const finish = () => {
-      window.clearTimeout(timeoutId);
-      resolve();
-    };
-
-    const fail = (message: string) => {
-      window.clearTimeout(timeoutId);
-      win.lifeLayersGooglePromise = undefined;
-      reject(new Error(message));
-    };
-
-    win.initLifeLayersGoogle = finish;
-    win.gm_authFailure = () =>
-      fail(
-        "Google Maps rejected this key. Add localhost/127.0.0.1 to HTTP referrers, enable Maps JavaScript API and Places API, and confirm billing.",
-      );
-
-    const script = document.createElement("script");
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(
-      apiKey,
-    )}&v=weekly&loading=async&libraries=places,geometry&callback=initLifeLayersGoogle`;
-    script.async = true;
-    script.onerror = () =>
-      fail("Google Maps failed to load. Check the API key and network access.");
-    document.head.appendChild(script);
-  });
-
-  return win.lifeLayersGooglePromise;
-}
-
-type GoogleSearchSpec = {
-  layer: LayerId;
-  city: Place["city"];
-  cityName: string;
-  query: string;
-  searchTag?: string;
-  center: { lat: number; lng: number; zoom: number };
-  limit: number;
-  radius: number;
-  pages: number;
-};
-
-function getSearchSpecs(
-  activeCity: CityId,
-  activeLayer: LayerId | "all",
-  liveSearchQuery: string,
-  userLocation?: UserLocation | null,
-  searchRadiusMiles = 25,
-): GoogleSearchSpec[] {
-  const nearbyRadius = radiusMilesToMeters(searchRadiusMiles);
-  const cityTargets =
-    activeCity === "nearby" && userLocation
-      ? [
-          {
-            id: "nearby" as const,
-            name: userLocation.label || "your area",
-            city: "Near you" as const,
-            preset: { lat: userLocation.lat, lng: userLocation.lng, zoom: 14 },
-          },
-        ]
-      : activeCity === "nearby"
-        ? []
-        : activeCity === "all"
-          ? [
-              {
-                id: "nyc" as const,
-                name: "New York City",
-                city: "NYC" as const,
-                preset: mapPresets.nyc,
-              },
-              {
-                id: "jc" as const,
-                name: "Jersey City",
-                city: "Jersey City" as const,
-                preset: mapPresets.jc,
-              },
-            ]
-          : [
-              activeCity === "nyc"
-                ? {
-                    id: "nyc" as const,
-                    name: "New York City",
-                    city: "NYC" as const,
-                    preset: mapPresets.nyc,
-                  }
-                : {
-                    id: "jc" as const,
-                    name: "Jersey City",
-                    city: "Jersey City" as const,
-                    preset: mapPresets.jc,
-                  },
-            ];
-
-  const trimmedSearch = liveSearchQuery.trim();
-
-  if (trimmedSearch) {
-    const searchLayer = inferLayerFromSearch(trimmedSearch, activeLayer);
-
-    return cityTargets.map((city) => ({
-      layer: searchLayer,
-      city: city.city,
-      cityName: city.name,
-      query: city.id === "nearby" ? trimmedSearch : `${trimmedSearch} ${city.name}`,
-      searchTag: trimmedSearch,
-      center: city.preset,
-      limit: 60,
-      radius: city.id === "nyc" ? 15000 : city.id === "nearby" ? nearbyRadius : 7000,
-      pages: 3,
-    }));
-  }
-
-  const layerTargets: LayerId[] =
-    activeLayer === "all"
-      ? ["eat", "do", "vibe", "memory"]
-      : activeLayer === "reddit"
-        ? []
-        : [activeLayer];
-
-  const broadQueryByLayer: Record<LayerId, string[]> = {
-    eat: ["restaurants cafes bakeries coffee bars brunch pizza ramen food halls"],
-    do: ["things to do parks museums galleries bookstores live music events"],
-    reddit: [],
-    memory: ["historic landmarks museums cultural sites architecture neighborhoods"],
-    vibe: ["date spots cocktail bars rooftop bars quiet cafes waterfront lounges"],
-  };
-
-  const focusedQueryByLayer: Record<LayerId, string[]> = {
-    eat: ["restaurants", "cafes coffee bakeries", "brunch pizza ramen bars"],
-    do: ["things to do parks museums", "bookstores galleries live music events"],
-    reddit: [],
-    memory: ["historic landmarks museums", "cultural sites architecture"],
-    vibe: ["date spots cocktail bars", "quiet cafes rooftops waterfront lounges"],
-  };
-
-  return cityTargets.flatMap((city) =>
-    layerTargets.flatMap((layer) => {
-      const queries = activeLayer === "all" ? broadQueryByLayer[layer] : focusedQueryByLayer[layer];
-
-      return queries.map((query) => ({
-        layer,
-        city: city.city,
-        cityName: city.name,
-        query: city.id === "nearby" ? query : `${query} in ${city.name}`,
-        searchTag: query,
-        center: city.preset,
-        limit: activeLayer === "all" ? 60 : 60,
-        radius: city.id === "nyc" ? 13500 : city.id === "nearby" ? nearbyRadius : 6500,
-        pages: 3,
-      }));
-    }),
-  );
-}
-
-function placeFromGoogleResult(
-  result: Record<string, any>,
-  layer: LayerId,
-  city: Place["city"],
-  searchTag?: string,
-): Place | null {
-  const location = result.geometry?.location;
-  const lat = typeof location?.lat === "function" ? location.lat() : undefined;
-  const lng = typeof location?.lng === "function" ? location.lng() : undefined;
-
-  if (typeof lat !== "number" || typeof lng !== "number" || !result.name) return null;
-
-  const rating = typeof result.rating === "number" ? result.rating : undefined;
-  const total =
-    typeof result.user_ratings_total === "number" ? result.user_ratings_total : undefined;
-  const kind =
-    Array.isArray(result.types) && result.types.length
-      ? String(result.types[0]).replaceAll("_", " ")
-      : layer === "eat"
-        ? "Restaurant"
-        : "Place";
-  const price = priceFromGoogle(result.price_level);
-  const neighborhood =
-    city === "Near you"
-      ? (result.vicinity ?? "Near your location")
-      : estimateNeighborhood(lat, lng, city);
-  const signal = googleSignal(rating, total);
-  const name = String(result.name);
-  const firstPhoto = Array.isArray(result.photos) ? result.photos[0] : undefined;
-  const photoUrl =
-    typeof firstPhoto?.getUrl === "function"
-      ? firstPhoto.getUrl({ maxWidth: 960, maxHeight: 640 })
-      : undefined;
-  const photoAttributions = Array.isArray(firstPhoto?.html_attributions)
-    ? firstPhoto.html_attributions.map((attribution: unknown) => String(attribution))
-    : undefined;
-
-  return {
-    id: `google-${result.place_id ?? `${name}-${lat}-${lng}`}`,
-    name,
-    neighborhood,
-    city,
-    layer,
-    kind,
-    price,
-    bestFor: [
-      "live Google result",
-      layer === "eat" ? "nearby food" : "nearby plan",
-      layer === "eat" ? (price === "$" ? "budget" : "dining") : kind,
-      searchTag,
-    ].filter((tag): tag is string => Boolean(tag)),
-    vibe: [
-      layer === "eat" ? "food" : "discoverable",
-      rating && rating >= 4.5 ? "high-rated" : "active",
-    ],
-    x: 0,
-    y: 0,
-    lat,
-    lng,
-    source: "google",
-    googlePlaceId: result.place_id,
-    photoUrl,
-    photoAttributions,
-    rating,
-    userRatingsTotal: total,
-    address: result.formatted_address ?? result.vicinity,
-    openNow: result.opening_hours?.open_now,
-    signal,
-    mentions: total ?? 0,
-    freshness: result.business_status === "OPERATIONAL" ? "Live on Google" : "Google result",
-    summary: `${name} is a live Google Places result${
-      rating ? ` rated ${rating.toFixed(1)}` : ""
-    }${total ? ` from ${total.toLocaleString()} reviews` : ""}.`,
-    localTip:
-      result.formatted_address ?? result.vicinity ?? "Open in Google Maps for the latest details.",
-    memory:
-      layer === "memory"
-        ? "Google identifies this as a cultural or landmark place; LifeLayers can add story context later."
-        : "Live Google data gives the place surface; LifeLayers adds local context, Reddit pulse, and planning layers.",
-    reddit: {
-      subreddits: ["Google Places"],
-      pulse: total && total > 1000 ? "Classic" : rating && rating >= 4.5 ? "Rising" : "Steady",
-      consensus:
-        "Sourced from Google Places. Reddit/community interpretation can be layered on top.",
-      warnings: ["Check hours and availability before going"],
-    },
-  };
-}
-
-function fetchGoogleTextSearch(
-  service: any,
-  google: any,
-  spec: GoogleSearchSpec,
-): Promise<Place[]> {
-  return new Promise((resolve) => {
-    const collected: Place[] = [];
-    let pageCount = 0;
-
-    const handleResults = (
-      results: Array<Record<string, any>> | null,
-      status: string,
-      pagination?: { hasNextPage: boolean; nextPage: () => void },
-    ) => {
-      if (status === google.maps.places.PlacesServiceStatus.ZERO_RESULTS) {
-        resolve(collected);
-        return;
-      }
-
-      if (status !== google.maps.places.PlacesServiceStatus.OK || !results) {
-        resolve(collected);
-        return;
-      }
-
-      pageCount += 1;
-      collected.push(
-        ...results
-          .map((result) => placeFromGoogleResult(result, spec.layer, spec.city, spec.searchTag))
-          .filter((place): place is Place => Boolean(place)),
-      );
-
-      const shouldFetchNextPage =
-        Boolean(pagination?.hasNextPage) && pageCount < spec.pages && collected.length < spec.limit;
-
-      if (shouldFetchNextPage) {
-        window.setTimeout(() => pagination?.nextPage(), 900);
-        return;
-      }
-
-      resolve(collected.slice(0, spec.limit));
-    };
-
-    service.textSearch(
-      {
-        query: spec.query,
-        location: new google.maps.LatLng(spec.center.lat, spec.center.lng),
-        radius: spec.radius,
-      },
-      handleResults,
-    );
-  });
-}
-
 export function GoogleLiveMap({
   apiKey,
+  mapId,
   activeCity,
   activeLayer,
   liveSearchQuery,
@@ -527,6 +215,7 @@ export function GoogleLiveMap({
   onUnavailable,
 }: {
   apiKey: string;
+  mapId?: string;
   activeCity: CityId;
   activeLayer: LayerId | "all";
   liveSearchQuery: string;
@@ -545,9 +234,8 @@ export function GoogleLiveMap({
   onUnavailable: (message: string) => void;
 }) {
   const mapNodeRef = useRef<HTMLDivElement | null>(null);
-  const mapRef = useRef<any>(null);
-  const serviceRef = useRef<any>(null);
-  const markersRef = useRef<any[]>([]);
+  const mapRef = useRef<GoogleMapLike | null>(null);
+  const markersRef = useRef<ManagedGoogleMarker[]>([]);
   const mapMoveIntentRef = useRef(false);
   const suppressViewportChangeRef = useRef(false);
   const viewportChangeTimeoutRef = useRef<number | null>(null);
@@ -562,12 +250,17 @@ export function GoogleLiveMap({
     loadGoogleMaps(apiKey)
       .then(() => {
         if (cancelled || !mapNodeRef.current) return;
-        const google = (window as any).google;
+        const google = getGoogleMaps();
+        const MapConstructor = google.maps?.Map;
+        if (!MapConstructor) {
+          throw new Error("Google Maps constructor is unavailable.");
+        }
         const preset = mapPresetForCity(activeCity, userLocation);
 
-        mapRef.current = new google.maps.Map(mapNodeRef.current, {
+        mapRef.current = new MapConstructor(mapNodeRef.current, {
           center: { lat: preset.lat, lng: preset.lng },
           zoom: preset.zoom,
+          mapId: mapId || "DEMO_MAP_ID",
           clickableIcons: true,
           gestureHandling: "greedy",
           fullscreenControl: true,
@@ -578,9 +271,8 @@ export function GoogleLiveMap({
             { featureType: "transit", stylers: [{ saturation: -35 }] },
             { featureType: "water", stylers: [{ color: "#b8d7dc" }] },
           ],
-        });
+        }) as GoogleMapLike;
 
-        serviceRef.current = new google.maps.places.PlacesService(mapRef.current);
         mapRef.current.addListener("dragstart", () => {
           mapMoveIntentRef.current = true;
         });
@@ -611,11 +303,10 @@ export function GoogleLiveMap({
     return () => {
       cancelled = true;
     };
-  }, [apiKey, activeCity, onStatus, onUnavailable, userLocation]);
+  }, [apiKey, activeCity, mapId, onStatus, onUnavailable, userLocation]);
 
   useEffect(() => {
-    const google = (window as any).google;
-    if (!mapsReady || !mapRef.current || !google) return;
+    if (!mapsReady || !mapRef.current) return;
 
     const preset = mapPresetForCity(activeCity, userLocation);
     suppressViewportChangeRef.current = true;
@@ -624,31 +315,7 @@ export function GoogleLiveMap({
   }, [activeCity, mapsReady, userLocation]);
 
   useEffect(() => {
-    const google = (window as any).google;
-    const service = serviceRef.current;
-
-    if (!mapsReady || !google || !service) return;
-
-    const specs = getSearchSpecs(
-      activeCity,
-      activeLayer,
-      liveSearchQuery,
-      userLocation,
-      searchRadiusMiles,
-    );
-    if (!specs.length) {
-      onLivePlaces([]);
-      onStatus({
-        source: "google",
-        message:
-          activeCity === "nearby"
-            ? "Share your location to search Google Places near you."
-            : "Reddit Pulse uses curated/community data. Switch layers or search Google Places.",
-        count: 0,
-        loading: false,
-      });
-      return;
-    }
+    if (!mapsReady || !mapRef.current) return;
 
     let cancelled = false;
     onLivePlaces([]);
@@ -659,30 +326,25 @@ export function GoogleLiveMap({
       loading: true,
     });
 
-    Promise.all(specs.map((spec) => fetchGoogleTextSearch(service, google, spec)))
-      .then((groups) => {
+    searchGooglePlaces({
+      activeCity,
+      activeLayer,
+      liveSearchQuery,
+      userLocation,
+      searchRadiusMiles,
+    })
+      .then((result) => {
         if (cancelled) return;
 
-        const seen = new Set<string>();
-        const nextPlaces = groups
-          .flat()
-          .filter((place) => {
-            const key = place.googlePlaceId ?? place.id;
-            if (seen.has(key)) return false;
-            seen.add(key);
-            return true;
-          })
-          .sort((a, b) => b.signal - a.signal);
-
-        onLivePlaces(nextPlaces);
+        onLivePlaces(result.places);
         onStatus({
           source: "google",
-          message: nextPlaces.length
+          message: result.places.length
             ? liveSearchQuery
               ? `Live Google results for "${liveSearchQuery}" loaded.`
-              : "Live Google Places pages loaded and sorted."
-            : "No Google Places returned for this layer. Showing curated fallback.",
-          count: nextPlaces.length,
+              : result.message
+            : result.message,
+          count: result.places.length,
           loading: false,
         });
       })
@@ -713,8 +375,10 @@ export function GoogleLiveMap({
   ]);
 
   useEffect(() => {
-    const google = (window as any).google;
-    if (!mapsReady || !mapRef.current || !google) return;
+    if (!mapsReady || !mapRef.current) return;
+    const google = getGoogleMaps();
+    const LatLng = google.maps?.LatLng;
+    if (!LatLng) return;
 
     const listener = mapRef.current.addListener("idle", () => {
       if (suppressViewportChangeRef.current) {
@@ -737,17 +401,21 @@ export function GoogleLiveMap({
         if (!center || !bounds) return;
 
         const northEast = bounds.getNorthEast();
-        const centerLatLng = new google.maps.LatLng(center.lat(), center.lng());
-        const edgeLatLng = new google.maps.LatLng(northEast.lat(), center.lng());
-        const radiusMeters = google.maps.geometry?.spherical?.computeDistanceBetween
+        const centerPoint = readLatLng(center);
+        const northEastPoint = readLatLng(northEast);
+        if (!centerPoint || !northEastPoint) return;
+
+        const centerLatLng = new LatLng(centerPoint.lat, centerPoint.lng);
+        const edgeLatLng = new LatLng(northEastPoint.lat, centerPoint.lng);
+        const radiusMeters = google.maps?.geometry?.spherical?.computeDistanceBetween
           ? google.maps.geometry.spherical.computeDistanceBetween(centerLatLng, edgeLatLng)
           : radiusMilesToMeters(searchRadiusMiles);
         const radiusMiles = Math.max(5, Math.min(30, radiusMeters / 1609.344));
 
         onViewportChange(
           {
-            lat: center.lat(),
-            lng: center.lng(),
+            lat: centerPoint.lat,
+            lng: centerPoint.lng,
           },
           radiusMiles,
           zoom,
@@ -764,43 +432,52 @@ export function GoogleLiveMap({
   }, [mapsReady, onViewportChange, searchRadiusMiles]);
 
   useEffect(() => {
-    const google = (window as any).google;
-    if (!mapsReady || !mapRef.current || !google) return;
+    if (!mapsReady || !mapRef.current) return;
 
-    markersRef.current.forEach((marker) => marker.setMap(null));
-    markersRef.current = visiblePlaces.map((place) => {
-      const marker = new google.maps.Marker({
-        map: mapRef.current,
-        position: { lat: place.lat, lng: place.lng },
-        title: place.name,
-        label: {
-          text: layers.find((layer) => layer.id === place.layer)?.symbol ?? "P",
-          color: "#ffffff",
-          fontWeight: "900",
-        },
-        icon: {
-          path: google.maps.SymbolPath.CIRCLE,
-          fillColor: layerColor[place.layer],
-          fillOpacity: 1,
-          strokeColor: "#ffffff",
-          strokeWeight: 2,
-          scale: place.id === selectedPlace.id ? 13 : 10,
-        },
+    let cancelled = false;
+    clearAdvancedPlaceMarkers(markersRef.current);
+    markersRef.current = [];
+
+    createAdvancedPlaceMarkers({
+      map: mapRef.current,
+      places: visiblePlaces,
+      selectedPlaceId: selectedPlace.id,
+      onPickPlace,
+    })
+      .then((markers) => {
+        if (cancelled) {
+          clearAdvancedPlaceMarkers(markers);
+          return;
+        }
+
+        markersRef.current = markers;
+      })
+      .catch((error) => {
+        onStatus({
+          source: "google",
+          message: getErrorMessage(error),
+          count: visiblePlaces.length,
+          loading: false,
+        });
       });
 
-      marker.addListener("click", () => onPickPlace(place));
-      return marker;
-    });
-  }, [visiblePlaces, selectedPlace.id, mapsReady, onPickPlace]);
+    return () => {
+      cancelled = true;
+      clearAdvancedPlaceMarkers(markersRef.current);
+      markersRef.current = [];
+    };
+  }, [visiblePlaces, selectedPlace.id, mapsReady, onPickPlace, onStatus]);
 
   useEffect(() => {
-    const google = (window as any).google;
-    if (!mapsReady || !mapRef.current || !google || !visiblePlaces.length) return;
+    if (!mapsReady || !mapRef.current || !visiblePlaces.length) return;
+    const google = getGoogleMaps();
+    const LatLngBounds = google.maps?.LatLngBounds;
+    if (!LatLngBounds) return;
 
     const mappablePlaces = visiblePlaces.filter((place) => place.layer !== "reddit");
     if (!mappablePlaces.length) return;
 
-    const bounds = new google.maps.LatLngBounds();
+    const bounds = new LatLngBounds();
     mappablePlaces.forEach((place) => {
       bounds.extend({ lat: place.lat, lng: place.lng });
     });

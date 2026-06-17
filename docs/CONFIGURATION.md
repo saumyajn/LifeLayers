@@ -13,8 +13,9 @@ Use this for the real map UI and live Google Places search.
    - Maps JavaScript API
    - Places API
 5. Create an API key in APIs & Services > Credentials.
+6. Create a Map ID in Maps Management > Map IDs. Advanced markers require a map ID.
 
-6. Restrict the API key:
+7. Restrict the API key:
    - Application restriction: HTTP referrers.
    - Local referrers:
      - `http://localhost:*/*`
@@ -25,10 +26,11 @@ Use this for the real map UI and live Google Places search.
    - API restrictions:
      - Maps JavaScript API
      - Places API
-7. Add the key to `.env.local`:
+8. Add the key and map ID to `.env.local`:
 
 ```env
-VITE_GOOGLE_MAPS_API_KEY=your_VITE_GOOGLE_MAPS_API_KEY_here
+VITE_GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here
+VITE_GOOGLE_MAPS_MAP_ID=your_google_maps_map_id_here
 ```
 
 Security notes:
@@ -36,6 +38,7 @@ Security notes:
 - Never commit real API keys, Firebase config values, service account files, or copied production credentials.
 - If a key is exposed in docs, git history, screenshots, chat, or logs, rotate it before launch.
 - Restrict Google Maps keys by HTTP referrer and by API. Production keys should only allow the deployed domain and only the Maps JavaScript API and Places API used by LifeLayers.
+- Use a real production map ID for AdvancedMarkerElement instead of the local `DEMO_MAP_ID` fallback.
 - Use a separate local development key where possible.
 
 Official references:
@@ -54,12 +57,12 @@ Use Firebase for Google login, saved user preferences, and user reviews.
 5. Add the values to `.env.local`:
 
 ```env
-FIREBASE_API_KEY=your_firebase_api_key_here
-FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
-FIREBASE_PROJECT_ID=your_project_id
-FIREBASE_STORAGE_BUCKET=your_project.appspot.com
-FIREBASE_MESSAGING_SENDER_ID=your_sender_id
-FIREBASE_APP_ID=your_firebase_app_id
+VITE_FIREBASE_API_KEY=your_firebase_api_key_here
+VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your_project_id
+VITE_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
+VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+VITE_FIREBASE_APP_ID=your_firebase_app_id
 ```
 
 Official reference:

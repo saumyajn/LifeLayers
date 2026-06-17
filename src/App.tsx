@@ -11,7 +11,7 @@ import {
   PresetRow,
   ResultsBoard,
 } from "./components/DiscoveryPanels";
-import { GoogleLiveMap, RealMap, loadGoogleMaps } from "./components/MapViews";
+import { GoogleLiveMap, RealMap } from "./components/MapViews";
 import { PlaceDetail } from "./components/PlaceDetail";
 import { Sidebar } from "./components/Sidebar";
 import { TopBar } from "./components/TopBar";
@@ -58,8 +58,10 @@ import {
   type SubcategoryFilter,
   type UserLocation,
 } from "./lib/lifelayers";
+import { geocodeAddress } from "./services/google/googleMapsLoader";
 
 const googleApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
+const googleMapId = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID as string | undefined;
 
 function App() {
   const [activeLayer, setActiveLayer] = useState<LayerId | "all">("all");
@@ -471,32 +473,7 @@ function App() {
     setLocationStatus(`Finding ${search}...`);
 
     try {
-      await loadGoogleMaps(googleApiKey);
-      const google = (window as any).google;
-      const geocoder = new google.maps.Geocoder();
-      const result = await new Promise<Record<string, any>>((resolve, reject) => {
-        geocoder.geocode(
-          { address: search },
-          (results: Array<Record<string, any>> | null, status: string) => {
-            if (status !== "OK" || !results?.[0]) {
-              reject(new Error(`Could not find "${search}". Try a city and state/country.`));
-              return;
-            }
-
-            resolve(results[0]);
-          },
-        );
-      });
-
-      const location = result.geometry?.location;
-      const lat = typeof location?.lat === "function" ? location.lat() : undefined;
-      const lng = typeof location?.lng === "function" ? location.lng() : undefined;
-
-      if (typeof lat !== "number" || typeof lng !== "number") {
-        throw new Error(`Could not read coordinates for "${search}".`);
-      }
-
-      const label = String(result.formatted_address ?? search);
+      const { lat, lng, label } = await geocodeAddress(googleApiKey, search);
       const nextLocation: UserLocation = {
         id: normalizeLocationId({ label, lat, lng }),
         lat,
@@ -1139,6 +1116,7 @@ function App() {
             {googleApiKey && googleMapAvailable ? (
               <GoogleLiveMap
                 apiKey={googleApiKey}
+                mapId={googleMapId}
                 activeCity={activeCity}
                 activeLayer={activeLayer}
                 liveSearchQuery={effectiveLiveSearchQuery}
