@@ -28,7 +28,7 @@ Use this for the real map UI and live Google Places search.
 7. Add the key to `.env.local`:
 
 ```env
-GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here
+VITE_GOOGLE_MAPS_API_KEY=your_VITE_GOOGLE_MAPS_API_KEY_here
 ```
 
 Security notes:
