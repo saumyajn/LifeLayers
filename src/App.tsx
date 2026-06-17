@@ -11,7 +11,7 @@ import {
   PresetRow,
   ResultsBoard,
 } from "./components/DiscoveryPanels";
-import { GoogleLiveMap, RealMap } from "./components/MapViews";
+import { GoogleLiveMap, RealMap, loadGoogleMaps } from "./components/MapViews";
 import { PlaceDetail } from "./components/PlaceDetail";
 import { Sidebar } from "./components/Sidebar";
 import { TopBar } from "./components/TopBar";
@@ -28,23 +28,23 @@ import {
 } from "./firebase";
 import {
   cityMatches,
-  cityOptions,
   csvEscape,
   downloadFile,
   filterMatches,
-  getCityId,
   getErrorMessage,
   getGoogleMapsUrl,
-  isCityPreference,
   isLayerPreference,
   isPricePreference,
   isPulsePreference,
   isSortPreference,
+  isUserLocation,
   layerSubcategoryOptions,
   layerMatches,
+  normalizeLocationId,
   planPresets,
   priceOptions,
   pulseOptions,
+  radiusOptions,
   sortPlaces,
   sortOptions,
   subcategoryMatches,
@@ -56,13 +56,14 @@ import {
   type ReviewStatus,
   type SortMode,
   type SubcategoryFilter,
+  type UserLocation,
 } from "./lib/lifelayers";
 
 const googleApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
 
 function App() {
   const [activeLayer, setActiveLayer] = useState<LayerId | "all">("all");
-  const [activeCity, setActiveCity] = useState<CityId>("all");
+  const [activeCity, setActiveCity] = useState<CityId>("nearby");
   const [selectedId, setSelectedId] = useState(places[0].id);
   const [query, setQuery] = useState("");
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -78,6 +79,12 @@ function App() {
   const [liveSearchQuery, setLiveSearchQuery] = useState("");
   const [livePlaces, setLivePlaces] = useState<Place[]>([]);
   const [actionStatus, setActionStatus] = useState("");
+  const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
+  const [savedLocations, setSavedLocations] = useState<UserLocation[]>([]);
+  const [locationDraft, setLocationDraft] = useState("");
+  const [findingLocation, setFindingLocation] = useState(false);
+  const [searchRadiusMiles, setSearchRadiusMiles] = useState<number>(25);
+  const [locationStatus, setLocationStatus] = useState("Finding your location...");
   const [googleMapAvailable, setGoogleMapAvailable] = useState(Boolean(googleApiKey));
   const [currentUser, setCurrentUser] = useState<LifeLayersUser | null>(null);
   const [authBusy, setAuthBusy] = useState(false);
@@ -96,6 +103,7 @@ function App() {
   const restoredUserRef = useRef<string | null>(null);
   const resultListRef = useRef<HTMLElement | null>(null);
   const hasMountedRef = useRef(false);
+  const geolocationAttemptedRef = useRef(false);
 
   const allPlaces = useMemo(() => {
     if (!googleApiKey || livePlaces.length === 0) return places;
@@ -178,6 +186,7 @@ function App() {
 
   const activeNeighborhoods = neighborhoods.filter((neighborhood) => {
     if (activeCity === "all") return true;
+    if (activeCity === "nearby") return false;
     return activeCity === "nyc"
       ? neighborhood.city === "NYC"
       : neighborhood.city === "Jersey City";
@@ -201,6 +210,9 @@ function App() {
       savedOnly,
       savedIds,
       liveSearchQuery,
+      userLocation,
+      savedLocations,
+      searchRadiusMiles,
     }),
     [
       activeLayer,
@@ -213,6 +225,9 @@ function App() {
       savedOnly,
       savedIds,
       liveSearchQuery,
+      userLocation,
+      savedLocations,
+      searchRadiusMiles,
     ],
   );
 
@@ -248,7 +263,7 @@ function App() {
   function clearFilter(filterId: string) {
     switch (filterId) {
       case "city":
-        setActiveCity("all");
+        setActiveCity(userLocation ? "nearby" : "all");
         break;
       case "layer":
         setActiveLayer("all");
@@ -286,13 +301,28 @@ function App() {
 
   const activeFilterChips = useMemo(() => {
     const chips: ActiveFilterChip[] = [];
-    const cityLabel = cityOptions.find((city) => city.id === activeCity)?.label;
+    const cityLabel =
+      activeCity === "nearby" && userLocation
+        ? userLocation.label
+        : activeCity === "nearby"
+          ? "Near me"
+          : "Current area";
     const layerLabel = layers.find((layer) => layer.id === activeLayer)?.label;
     const priceLabel = priceOptions.find((price) => price.id === priceFilter)?.label;
     const pulseLabel = pulseOptions.find((pulse) => pulse.id === pulseFilter)?.label;
     const sortLabel = sortOptions.find((sort) => sort.id === sortMode)?.label;
 
-    if (activeCity !== "all" && cityLabel) chips.push({ id: "city", label: `City: ${cityLabel}`, onClear: () => clearFilter("city") });
+    if (activeCity !== "all" && cityLabel) {
+      chips.push({
+        id: "city",
+        label: `Location: ${cityLabel}`,
+        onClear: () => clearFilter("city"),
+      });
+      chips.push({
+        id: "radius",
+        label: `Distance: ${searchRadiusMiles} mi`,
+      });
+    }
     if (activeLayer !== "all" && layerLabel) chips.push({ id: "layer", label: `Layer: ${layerLabel}`, onClear: () => clearFilter("layer") });
     if (priceFilter !== "all" && priceLabel) chips.push({ id: "price", label: `Price: ${priceLabel}`, onClear: () => clearFilter("price") });
     if (activeSubcategory) chips.push({ id: "subcategory", label: `Option: ${activeSubcategory.label}`, onClear: () => clearFilter("subcategory") });
@@ -313,7 +343,9 @@ function App() {
     pulseFilter,
     query,
     savedOnly,
+    searchRadiusMiles,
     sortMode,
+    userLocation,
     vibeFilter,
   ]);
 
@@ -330,6 +362,9 @@ function App() {
         savedOnly ? "saved" : "all",
         query,
         liveSearchQuery,
+        userLocation?.lat,
+        userLocation?.lng,
+        searchRadiusMiles,
       ].join("|"),
     [
       activeCity,
@@ -339,10 +374,175 @@ function App() {
       pulseFilter,
       query,
       savedOnly,
+      searchRadiusMiles,
       sortMode,
       subcategoryFilter,
+      userLocation?.lat,
+      userLocation?.lng,
       vibeFilter,
     ],
+  );
+
+  const requestBrowserLocation = useCallback((manual = false, precise = true) => {
+    if (!("geolocation" in navigator)) {
+      setLocationStatus("Location is not supported in this browser.");
+      if (manual) setActionStatus("This browser does not support location sharing.");
+      return;
+    }
+
+    if (!manual && geolocationAttemptedRef.current) return;
+
+    geolocationAttemptedRef.current = true;
+    setLocationStatus("Requesting your location...");
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const nextLocation: UserLocation = {
+          id: "current-location",
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+          label: "Current location",
+          source: "browser",
+          radiusMiles: searchRadiusMiles,
+          updatedAt: new Date().toISOString(),
+        };
+
+        setUserLocation(nextLocation);
+        setActiveCity("nearby");
+        setLocationStatus("Using your current location.");
+        setActionStatus("LifeLayers is searching near your location.");
+      },
+      () => {
+        setLocationStatus("Location blocked. Showing fallback places.");
+        setActiveCity("all");
+        if (manual) setActionStatus("Location permission was blocked.");
+      },
+      {
+        enableHighAccuracy: precise,
+        maximumAge: precise ? 0 : 10 * 60 * 1000,
+        timeout: precise ? 12000 : 8000,
+      },
+    );
+  }, [searchRadiusMiles]);
+
+  const findCityLocation = useCallback(async () => {
+    const search = locationDraft.trim();
+    if (!search) {
+      setActionStatus("Enter a city to preview.");
+      return;
+    }
+
+    if (!googleApiKey) {
+      setActionStatus("Add VITE_GOOGLE_MAPS_API_KEY to search and save cities.");
+      return;
+    }
+
+    setFindingLocation(true);
+    setLocationStatus(`Finding ${search}...`);
+
+    try {
+      await loadGoogleMaps(googleApiKey);
+      const google = (window as any).google;
+      const geocoder = new google.maps.Geocoder();
+      const result = await new Promise<Record<string, any>>((resolve, reject) => {
+        geocoder.geocode({ address: search }, (results: Array<Record<string, any>> | null, status: string) => {
+          if (status !== "OK" || !results?.[0]) {
+            reject(new Error(`Could not find "${search}". Try a city and state/country.`));
+            return;
+          }
+
+          resolve(results[0]);
+        });
+      });
+
+      const location = result.geometry?.location;
+      const lat = typeof location?.lat === "function" ? location.lat() : undefined;
+      const lng = typeof location?.lng === "function" ? location.lng() : undefined;
+
+      if (typeof lat !== "number" || typeof lng !== "number") {
+        throw new Error(`Could not read coordinates for "${search}".`);
+      }
+
+      const label = String(result.formatted_address ?? search);
+      const nextLocation: UserLocation = {
+        id: normalizeLocationId({ label, lat, lng }),
+        lat,
+        lng,
+        label,
+        source: "search",
+        radiusMiles: searchRadiusMiles,
+        updatedAt: new Date().toISOString(),
+      };
+
+      setUserLocation(nextLocation);
+      setActiveCity("nearby");
+      setLocationStatus(`Previewing ${label}.`);
+      setActionStatus(`Previewing places in ${label}. Save it to keep this city.`);
+    } catch (error) {
+      setLocationStatus("City search failed.");
+      setActionStatus(getErrorMessage(error));
+    } finally {
+      setFindingLocation(false);
+    }
+  }, [locationDraft, searchRadiusMiles]);
+
+  const saveActiveLocation = () => {
+    if (!userLocation) {
+      setActionStatus("Find a city or use your location before saving.");
+      return;
+    }
+
+    const savedLocation: UserLocation = {
+      ...userLocation,
+      id: userLocation.id ?? normalizeLocationId(userLocation),
+      source: "saved",
+      radiusMiles: searchRadiusMiles,
+      updatedAt: new Date().toISOString(),
+    };
+
+    setSavedLocations((current) => {
+      const withoutDuplicate = current.filter((location) => location.id !== savedLocation.id);
+      return [...withoutDuplicate, savedLocation].sort((a, b) => a.label.localeCompare(b.label));
+    });
+    setUserLocation(savedLocation);
+    setActiveCity("nearby");
+    setLocationStatus(`Saved ${savedLocation.label}.`);
+    setActionStatus(`${savedLocation.label} saved for future planning.`);
+  };
+
+  const selectSavedLocation = (locationId: string) => {
+    const nextLocation = savedLocations.find((location) => location.id === locationId);
+    if (!nextLocation) return;
+
+    setUserLocation(nextLocation);
+    setSearchRadiusMiles(nextLocation.radiusMiles ?? searchRadiusMiles);
+    setActiveCity("nearby");
+    setLocationDraft("");
+    setLocationStatus(`Using saved city ${nextLocation.label}.`);
+    setActionStatus(`Showing places in ${nextLocation.label}.`);
+  };
+
+  const handleMapViewportChange = useCallback(
+    (center: { lat: number; lng: number }, radiusMiles: number, zoom: number) => {
+      const nextRadius = radiusOptions.reduce((closest, option) =>
+        Math.abs(option - radiusMiles) < Math.abs(closest - radiusMiles) ? option : closest,
+      );
+      const nextLocation: UserLocation = {
+        id: `map-${center.lat.toFixed(4)}-${center.lng.toFixed(4)}-${zoom}`,
+        lat: center.lat,
+        lng: center.lng,
+        label: "Map area",
+        source: "map",
+        radiusMiles: nextRadius,
+        updatedAt: new Date().toISOString(),
+      };
+
+      setUserLocation(nextLocation);
+      setSearchRadiusMiles(nextRadius);
+      setActiveCity("nearby");
+      setLocationStatus(`Showing places in this map area within ${nextRadius} miles.`);
+    },
+    [],
   );
 
   useEffect(() => {
@@ -369,6 +569,7 @@ function App() {
         if (!user) {
           restoredUserRef.current = null;
           setPreferencesReady(!isFirebaseConfigured);
+          requestBrowserLocation();
           return;
         }
 
@@ -381,13 +582,16 @@ function App() {
 
         loadUserPreferences(user.uid)
           .then((storedPreferences) => {
-            if (!storedPreferences) return;
+            if (!storedPreferences) {
+              requestBrowserLocation();
+              return;
+            }
 
             if (isLayerPreference(storedPreferences.activeLayer)) {
               setActiveLayer(storedPreferences.activeLayer);
             }
-            if (isCityPreference(storedPreferences.activeCity)) {
-              setActiveCity(storedPreferences.activeCity);
+            if (storedPreferences.activeCity === "nearby") {
+              setActiveCity("nearby");
             }
             if (isPricePreference(storedPreferences.priceFilter)) {
               setPriceFilter(storedPreferences.priceFilter);
@@ -414,6 +618,61 @@ function App() {
               setLiveSearchQuery(storedPreferences.liveSearchQuery);
               setLiveSearchDraft(storedPreferences.liveSearchQuery);
             }
+            if (
+              typeof storedPreferences.searchRadiusMiles === "number" &&
+              radiusOptions.some((option) => option === storedPreferences.searchRadiusMiles)
+            ) {
+              setSearchRadiusMiles(storedPreferences.searchRadiusMiles);
+            }
+            const restoredSavedLocations = Array.isArray(storedPreferences.savedLocations)
+              ? storedPreferences.savedLocations
+                  .filter(isUserLocation)
+                  .map((location) => ({
+                    ...location,
+                    id: location.id ?? normalizeLocationId(location),
+                    source: "saved" as const,
+                    radiusMiles: location.radiusMiles ?? storedPreferences.searchRadiusMiles ?? 25,
+                  }))
+              : [];
+
+            if (restoredSavedLocations.length) {
+              setSavedLocations(restoredSavedLocations);
+            }
+
+            if (isUserLocation(storedPreferences.userLocation)) {
+              const activeLocation: UserLocation = {
+                ...storedPreferences.userLocation,
+                id: storedPreferences.userLocation.id ?? normalizeLocationId(storedPreferences.userLocation),
+                source:
+                  storedPreferences.userLocation.source === "browser"
+                    ? "browser"
+                    : restoredSavedLocations.some(
+                        (location) =>
+                          location.id ===
+                          (storedPreferences.userLocation?.id ??
+                            normalizeLocationId(storedPreferences.userLocation as UserLocation)),
+                      )
+                      ? "saved"
+                      : storedPreferences.userLocation.source,
+              };
+
+              setUserLocation({
+                ...activeLocation,
+                label: activeLocation.label || "Saved location",
+              });
+              setSearchRadiusMiles(activeLocation.radiusMiles ?? storedPreferences.searchRadiusMiles ?? 25);
+              setActiveCity("nearby");
+              setLocationStatus(
+                activeLocation.source === "saved" ? "Using your saved city." : "Using your saved location.",
+              );
+            } else if (restoredSavedLocations[0]) {
+              setUserLocation(restoredSavedLocations[0]);
+              setSearchRadiusMiles(restoredSavedLocations[0].radiusMiles ?? storedPreferences.searchRadiusMiles ?? 25);
+              setActiveCity("nearby");
+              setLocationStatus("Using your saved city.");
+            } else {
+              requestBrowserLocation();
+            }
 
             setActionStatus("Your saved LifeLayers setup is loaded.");
           })
@@ -423,7 +682,7 @@ function App() {
             setPreferencesReady(true);
           });
       }),
-    [],
+    [requestBrowserLocation],
   );
 
   useEffect(() => {
@@ -495,7 +754,7 @@ function App() {
   };
 
   const resetFilters = () => {
-    setActiveCity("all");
+    setActiveCity(userLocation ? "nearby" : "all");
     setActiveLayer("all");
     setSubcategoryFilter("all");
     setPriceFilter("all");
@@ -545,6 +804,15 @@ function App() {
     }
 
     setActionStatus("Allow popups to open saved places in Google Maps.");
+  };
+
+  const keepLocationMode = (place?: Place) => {
+    if (place?.city === "Near you" || userLocation) {
+      setActiveCity("nearby");
+      return;
+    }
+
+    setActiveCity("all");
   };
 
   const handleGoogleMapUnavailable = useCallback((message: string) => {
@@ -613,7 +881,7 @@ function App() {
   };
 
   const getPlanTitle = () => {
-    const cityLabel = cityOptions.find((city) => city.id === activeCity)?.label ?? "NYC + JC";
+    const cityLabel = activeCity === "nearby" && userLocation ? userLocation.label : "Current location";
     const layerLabel =
       activeLayer === "all"
         ? "all layers"
@@ -737,7 +1005,18 @@ function App() {
     <main className="app-shell">
       <TopBar
         activeCity={activeCity}
-        onCityChange={setActiveCity}
+        userLocation={userLocation}
+        savedLocations={savedLocations}
+        locationDraft={locationDraft}
+        locationStatus={locationStatus}
+        findingLocation={findingLocation}
+        searchRadiusMiles={searchRadiusMiles}
+        onLocationDraftChange={setLocationDraft}
+        onRadiusChange={setSearchRadiusMiles}
+        onFindLocation={findCityLocation}
+        onSaveLocation={saveActiveLocation}
+        onSelectSavedLocation={selectSavedLocation}
+        onUseCurrentLocation={() => requestBrowserLocation(true)}
         onOpenPalette={() => setPaletteOpen(true)}
       />
 
@@ -824,6 +1103,9 @@ function App() {
                 liveSearchQuery={effectiveLiveSearchQuery}
                 places={visiblePlaces}
                 selectedPlace={selectedPlace}
+                userLocation={userLocation}
+                searchRadiusMiles={searchRadiusMiles}
+                onViewportChange={handleMapViewportChange}
                 onPickPlace={(place) => setSelectedId(place.id)}
                 onLivePlaces={setLivePlaces}
                 onStatus={setLiveStatus}
@@ -835,6 +1117,8 @@ function App() {
                 neighborhoods={activeNeighborhoods}
                 places={visiblePlaces}
                 selectedPlace={selectedPlace}
+                userLocation={userLocation}
+                searchRadiusMiles={searchRadiusMiles}
                 onPickNeighborhood={(neighborhood) => setQuery(neighborhood.name)}
                 onPickPlace={(place) => setSelectedId(place.id)}
               />
@@ -864,7 +1148,7 @@ function App() {
             place={selectedPlace}
             isSaved={savedIds.includes(selectedPlace.id)}
             onSave={() => toggleSaved(selectedPlace.id)}
-            onCityClick={() => setActiveCity(getCityId(selectedPlace))}
+            onCityClick={() => keepLocationMode(selectedPlace)}
             currentUser={currentUser}
             firebaseConfigured={isFirebaseConfigured}
             reviewRating={reviewRating}
@@ -883,7 +1167,7 @@ function App() {
           place={selectedPlace}
           isSaved={savedIds.includes(selectedPlace.id)}
           onSave={() => toggleSaved(selectedPlace.id)}
-          onCityClick={() => setActiveCity(getCityId(selectedPlace))}
+          onCityClick={() => keepLocationMode(selectedPlace)}
           currentUser={currentUser}
           firebaseConfigured={isFirebaseConfigured}
           reviewRating={reviewRating}
@@ -904,7 +1188,7 @@ function App() {
           onClose={() => setPaletteOpen(false)}
           onPickPlace={(place) => {
             setSelectedId(place.id);
-            setActiveCity(getCityId(place));
+            keepLocationMode(place);
             setPaletteOpen(false);
           }}
           onQuickSearch={runQuickSearch}

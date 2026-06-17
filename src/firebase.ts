@@ -17,6 +17,7 @@ import {
   setDoc,
 } from "firebase/firestore";
 import type { CityId, LayerId, Place } from "./data/places";
+import type { UserLocation } from "./lib/lifelayers";
 
 export type UserPreferences = {
   activeLayer: LayerId | "all";
@@ -29,6 +30,9 @@ export type UserPreferences = {
   savedOnly: boolean;
   savedIds: string[];
   liveSearchQuery: string;
+  userLocation: UserLocation | null;
+  savedLocations: UserLocation[];
+  searchRadiusMiles: number;
 };
 
 export type LifeLayersUser = Pick<User, "uid" | "displayName" | "email" | "photoURL">;

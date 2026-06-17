@@ -1,11 +1,12 @@
 export type LayerId = "eat" | "do" | "reddit" | "memory" | "vibe";
-export type CityId = "all" | "nyc" | "jc";
+export type CityId = "all" | "nearby" | "nyc" | "jc";
+export type PlaceCity = "NYC" | "Jersey City" | "Near you";
 
 export type Place = {
   id: string;
   name: string;
   neighborhood: string;
-  city: "NYC" | "Jersey City";
+  city: PlaceCity;
   layer: LayerId;
   kind: string;
   price: "Free" | "$" | "$$" | "$$$";

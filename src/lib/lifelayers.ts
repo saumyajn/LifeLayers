@@ -1,6 +1,18 @@
 import type { CityId, LayerId, Place } from "../data/places";
 import { layers, neighborhoods } from "../data/places";
 
+export type UserLocationSource = "saved" | "browser" | "search" | "map";
+
+export type UserLocation = {
+  id?: string;
+  lat: number;
+  lng: number;
+  label: string;
+  source: UserLocationSource;
+  radiusMiles?: number;
+  updatedAt: string;
+};
+
 export type PriceFilter = "all" | Place["price"];
 export type PulseFilter = "all" | Place["reddit"]["pulse"];
 export type SortMode = "signal" | "rating" | "reviews" | "name";
@@ -45,6 +57,7 @@ export type ExportPlace = Pick<
 >;
 
 export const cityOptions: Array<{ id: CityId; label: string }> = [
+  { id: "nearby", label: "Near me" },
   { id: "all", label: "NYC + JC" },
   { id: "nyc", label: "NYC" },
   { id: "jc", label: "Jersey City" },
@@ -72,6 +85,12 @@ export const sortOptions: Array<{ id: SortMode; label: string }> = [
   { id: "reviews", label: "Most Google reviews" },
   { id: "name", label: "A to Z" },
 ];
+
+export const radiusOptions = [5, 10, 25, 30] as const;
+
+export function radiusMilesToMeters(radiusMiles: number) {
+  return Math.min(50000, Math.max(1609, Math.round(radiusMiles * 1609.344)));
+}
 
 export const layerSubcategoryOptions: Record<LayerId, LayerSubcategoryOption[]> = {
   eat: [
@@ -138,7 +157,7 @@ export const layerColor: Record<LayerId, string> = {
   vibe: "#2b68a8",
 };
 
-export const mapPresets: Record<CityId, { lat: number; lng: number; zoom: number }> = {
+export const mapPresets: Record<Exclude<CityId, "nearby">, { lat: number; lng: number; zoom: number }> = {
   all: { lat: 40.724, lng: -73.995, zoom: 11 },
   nyc: { lat: 40.728, lng: -73.985, zoom: 12 },
   jc: { lat: 40.723, lng: -74.049, zoom: 13 },
@@ -167,6 +186,7 @@ export function clampZoom(zoom: number) {
 
 export function cityMatches(place: Place, city: CityId) {
   if (city === "all") return true;
+  if (city === "nearby") return place.source === "google" && place.city === "Near you";
   return city === "nyc" ? place.city === "NYC" : place.city === "Jersey City";
 }
 
@@ -194,7 +214,47 @@ export function textMatches(place: Place, query: string) {
 }
 
 export function getCityId(place: Place): Exclude<CityId, "all"> {
+  if (place.city === "Near you") return "nearby";
   return place.city === "NYC" ? "nyc" : "jc";
+}
+
+export function isUserLocation(value: unknown): value is UserLocation {
+  if (!value || typeof value !== "object") return false;
+
+  const location = value as Partial<UserLocation>;
+  return (
+    typeof location.lat === "number" &&
+    typeof location.lng === "number" &&
+    Number.isFinite(location.lat) &&
+    Number.isFinite(location.lng) &&
+    Math.abs(location.lat) <= 90 &&
+    Math.abs(location.lng) <= 180 &&
+    typeof location.label === "string" &&
+    (location.source === "saved" ||
+      location.source === "browser" ||
+      location.source === "search" ||
+      location.source === "map")
+  );
+}
+
+export function normalizeLocationId(location: Pick<UserLocation, "label" | "lat" | "lng">) {
+  return `${location.label}-${location.lat.toFixed(4)}-${location.lng.toFixed(4)}`
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+export function mapPresetForCity(city: CityId, userLocation?: UserLocation | null) {
+  if (city === "nearby" && userLocation) {
+    return {
+      lat: userLocation.lat,
+      lng: userLocation.lng,
+      zoom: 14,
+    };
+  }
+
+  if (city === "nearby") return mapPresets.all;
+  return mapPresets[city];
 }
 
 export function getGoogleMapsUrl(place: Place) {
