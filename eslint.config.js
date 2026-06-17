@@ -6,14 +6,7 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: [
-      "dist",
-      "node_modules",
-      "*.tsbuildinfo",
-      "coverage",
-      ".codex",
-      "public",
-    ],
+    ignores: ["dist", "node_modules", "*.tsbuildinfo", "coverage", ".codex", "public"],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

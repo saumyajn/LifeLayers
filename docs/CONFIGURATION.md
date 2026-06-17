@@ -32,12 +32,14 @@ GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here
 ```
 
 Security notes:
+
 - Never commit real API keys, Firebase config values, service account files, or copied production credentials.
 - If a key is exposed in docs, git history, screenshots, chat, or logs, rotate it before launch.
 - Restrict Google Maps keys by HTTP referrer and by API. Production keys should only allow the deployed domain and only the Maps JavaScript API and Places API used by LifeLayers.
 - Use a separate local development key where possible.
 
 Official references:
+
 - Google Maps JavaScript setup: https://developers.google.com/maps/documentation/javascript/get-api-key
 - Google Maps API key security: https://developers.google.com/maps/api-security-best-practices
 
@@ -61,6 +63,7 @@ FIREBASE_APP_ID=your_firebase_app_id
 ```
 
 Official reference:
+
 - Firebase web setup: https://firebase.google.com/docs/web/setup
 
 ## 3. Google Login
@@ -77,6 +80,7 @@ Official reference:
    - `your-domain.com`
 
 Official references:
+
 - Firebase Authentication: https://firebase.google.com/docs/auth
 - Firebase Google sign-in for web: https://firebase.google.com/docs/auth/web/google-signin
 
@@ -89,6 +93,7 @@ Official references:
 5. Publish Firestore Security Rules from the project root `firestore.rules` file before launch.
 
 The committed `firestore.rules` file is the source of truth. It uses this security model:
+
 - Users can read and write only their own `/users/{uid}` profile/preferences document.
 - Reviews are publicly readable discovery content.
 - Only signed-in users can create reviews, and each review must belong to the signed-in user.
@@ -116,6 +121,7 @@ firebase deploy --only firestore:rules
 ```
 
 Official references:
+
 - Firestore Security Rules: https://firebase.google.com/docs/firestore/security/get-started
 - Firebase Security Rules overview: https://firebase.google.com/docs/rules
 

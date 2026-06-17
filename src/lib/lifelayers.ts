@@ -94,47 +94,227 @@ export function radiusMilesToMeters(radiusMiles: number) {
 
 export const layerSubcategoryOptions: Record<LayerId, LayerSubcategoryOption[]> = {
   eat: [
-    { id: "indian", label: "Indian", layer: "eat", terms: ["indian", "chaat", "curry", "dosa"], liveQuery: "Indian restaurants" },
+    {
+      id: "indian",
+      label: "Indian",
+      layer: "eat",
+      terms: ["indian", "chaat", "curry", "dosa"],
+      liveQuery: "Indian restaurants",
+    },
     { id: "thai", label: "Thai", layer: "eat", terms: ["thai"], liveQuery: "Thai restaurants" },
     { id: "pizza", label: "Pizza", layer: "eat", terms: ["pizza", "slice"], liveQuery: "pizza" },
-    { id: "coffee", label: "Coffee", layer: "eat", terms: ["coffee", "cafe"], liveQuery: "coffee cafes" },
-    { id: "bakery", label: "Bakeries", layer: "eat", terms: ["bakery", "bakeries", "dessert"], liveQuery: "bakeries" },
-    { id: "brunch", label: "Brunch", layer: "eat", terms: ["brunch", "breakfast"], liveQuery: "brunch restaurants" },
-    { id: "bars", label: "Bars", layer: "eat", terms: ["bar", "bars", "cocktail"], liveQuery: "bars" },
+    {
+      id: "coffee",
+      label: "Coffee",
+      layer: "eat",
+      terms: ["coffee", "cafe"],
+      liveQuery: "coffee cafes",
+    },
+    {
+      id: "bakery",
+      label: "Bakeries",
+      layer: "eat",
+      terms: ["bakery", "bakeries", "dessert"],
+      liveQuery: "bakeries",
+    },
+    {
+      id: "brunch",
+      label: "Brunch",
+      layer: "eat",
+      terms: ["brunch", "breakfast"],
+      liveQuery: "brunch restaurants",
+    },
+    {
+      id: "bars",
+      label: "Bars",
+      layer: "eat",
+      terms: ["bar", "bars", "cocktail"],
+      liveQuery: "bars",
+    },
     { id: "ramen", label: "Ramen", layer: "eat", terms: ["ramen", "noodles"], liveQuery: "ramen" },
-    { id: "tacos", label: "Tacos", layer: "eat", terms: ["taco", "tacos", "taqueria"], liveQuery: "tacos" },
-    { id: "vegetarian", label: "Vegetarian", layer: "eat", terms: ["vegetarian", "vegan"], liveQuery: "vegetarian restaurants" },
+    {
+      id: "tacos",
+      label: "Tacos",
+      layer: "eat",
+      terms: ["taco", "tacos", "taqueria"],
+      liveQuery: "tacos",
+    },
+    {
+      id: "vegetarian",
+      label: "Vegetarian",
+      layer: "eat",
+      terms: ["vegetarian", "vegan"],
+      liveQuery: "vegetarian restaurants",
+    },
   ],
   do: [
-    { id: "parks", label: "Parks", layer: "do", terms: ["park", "parks", "waterfront"], liveQuery: "parks" },
-    { id: "museums", label: "Museums", layer: "do", terms: ["museum", "museums"], liveQuery: "museums" },
-    { id: "bookstores", label: "Bookstores", layer: "do", terms: ["bookstore", "books"], liveQuery: "bookstores" },
-    { id: "galleries", label: "Galleries", layer: "do", terms: ["gallery", "galleries", "art"], liveQuery: "art galleries" },
-    { id: "music", label: "Live music", layer: "do", terms: ["music", "venue", "live"], liveQuery: "live music venues" },
-    { id: "markets", label: "Markets", layer: "do", terms: ["market", "greenmarket"], liveQuery: "markets" },
-    { id: "walks", label: "Walks", layer: "do", terms: ["walk", "walks", "skyline"], liveQuery: "scenic walks" },
+    {
+      id: "parks",
+      label: "Parks",
+      layer: "do",
+      terms: ["park", "parks", "waterfront"],
+      liveQuery: "parks",
+    },
+    {
+      id: "museums",
+      label: "Museums",
+      layer: "do",
+      terms: ["museum", "museums"],
+      liveQuery: "museums",
+    },
+    {
+      id: "bookstores",
+      label: "Bookstores",
+      layer: "do",
+      terms: ["bookstore", "books"],
+      liveQuery: "bookstores",
+    },
+    {
+      id: "galleries",
+      label: "Galleries",
+      layer: "do",
+      terms: ["gallery", "galleries", "art"],
+      liveQuery: "art galleries",
+    },
+    {
+      id: "music",
+      label: "Live music",
+      layer: "do",
+      terms: ["music", "venue", "live"],
+      liveQuery: "live music venues",
+    },
+    {
+      id: "markets",
+      label: "Markets",
+      layer: "do",
+      terms: ["market", "greenmarket"],
+      liveQuery: "markets",
+    },
+    {
+      id: "walks",
+      label: "Walks",
+      layer: "do",
+      terms: ["walk", "walks", "skyline"],
+      liveQuery: "scenic walks",
+    },
   ],
   reddit: [
-    { id: "date-thread", label: "Date threads", layer: "reddit", terms: ["date", "romantic"], liveQuery: "date night" },
-    { id: "cheap-eats-thread", label: "Cheap eats", layer: "reddit", terms: ["cheap", "under $20", "value"], liveQuery: "cheap eats" },
-    { id: "moving-thread", label: "Moving advice", layer: "reddit", terms: ["moving", "new residents"], liveQuery: "moving advice" },
-    { id: "weekend-thread", label: "Weekend plans", layer: "reddit", terms: ["weekend"], liveQuery: "weekend plans" },
-    { id: "rainy-thread", label: "Rainy day", layer: "reddit", terms: ["rainy"], liveQuery: "rainy day" },
+    {
+      id: "date-thread",
+      label: "Date threads",
+      layer: "reddit",
+      terms: ["date", "romantic"],
+      liveQuery: "date night",
+    },
+    {
+      id: "cheap-eats-thread",
+      label: "Cheap eats",
+      layer: "reddit",
+      terms: ["cheap", "under $20", "value"],
+      liveQuery: "cheap eats",
+    },
+    {
+      id: "moving-thread",
+      label: "Moving advice",
+      layer: "reddit",
+      terms: ["moving", "new residents"],
+      liveQuery: "moving advice",
+    },
+    {
+      id: "weekend-thread",
+      label: "Weekend plans",
+      layer: "reddit",
+      terms: ["weekend"],
+      liveQuery: "weekend plans",
+    },
+    {
+      id: "rainy-thread",
+      label: "Rainy day",
+      layer: "reddit",
+      terms: ["rainy"],
+      liveQuery: "rainy day",
+    },
   ],
   memory: [
-    { id: "landmarks", label: "Landmarks", layer: "memory", terms: ["landmark", "clock", "historic"], liveQuery: "historic landmarks" },
-    { id: "historic-bars", label: "Historic bars", layer: "memory", terms: ["historic bar", "bar", "old ale"], liveQuery: "historic bars" },
-    { id: "museums", label: "Museums", layer: "memory", terms: ["museum", "museums"], liveQuery: "history museums" },
-    { id: "architecture", label: "Architecture", layer: "memory", terms: ["architecture", "industrial", "elevated"], liveQuery: "architecture landmarks" },
-    { id: "old-shops", label: "Old shops", layer: "memory", terms: ["shop", "old-school", "nostalgia"], liveQuery: "historic shops" },
+    {
+      id: "landmarks",
+      label: "Landmarks",
+      layer: "memory",
+      terms: ["landmark", "clock", "historic"],
+      liveQuery: "historic landmarks",
+    },
+    {
+      id: "historic-bars",
+      label: "Historic bars",
+      layer: "memory",
+      terms: ["historic bar", "bar", "old ale"],
+      liveQuery: "historic bars",
+    },
+    {
+      id: "museums",
+      label: "Museums",
+      layer: "memory",
+      terms: ["museum", "museums"],
+      liveQuery: "history museums",
+    },
+    {
+      id: "architecture",
+      label: "Architecture",
+      layer: "memory",
+      terms: ["architecture", "industrial", "elevated"],
+      liveQuery: "architecture landmarks",
+    },
+    {
+      id: "old-shops",
+      label: "Old shops",
+      layer: "memory",
+      terms: ["shop", "old-school", "nostalgia"],
+      liveQuery: "historic shops",
+    },
   ],
   vibe: [
-    { id: "date-night", label: "Date night", layer: "vibe", terms: ["date", "romantic", "intimate"], liveQuery: "date spots" },
-    { id: "quiet", label: "Quiet", layer: "vibe", terms: ["quiet", "calm", "reflective"], liveQuery: "quiet cafes" },
-    { id: "rooftop", label: "Rooftop", layer: "vibe", terms: ["rooftop", "views", "skyline"], liveQuery: "rooftop bars" },
-    { id: "cocktails", label: "Cocktails", layer: "vibe", terms: ["cocktail", "bar", "lounge"], liveQuery: "cocktail bars" },
-    { id: "waterfront", label: "Waterfront", layer: "vibe", terms: ["waterfront", "views"], liveQuery: "waterfront spots" },
-    { id: "laptop", label: "Laptop friendly", layer: "vibe", terms: ["laptop", "coffee", "cafe"], liveQuery: "laptop friendly cafes" },
+    {
+      id: "date-night",
+      label: "Date night",
+      layer: "vibe",
+      terms: ["date", "romantic", "intimate"],
+      liveQuery: "date spots",
+    },
+    {
+      id: "quiet",
+      label: "Quiet",
+      layer: "vibe",
+      terms: ["quiet", "calm", "reflective"],
+      liveQuery: "quiet cafes",
+    },
+    {
+      id: "rooftop",
+      label: "Rooftop",
+      layer: "vibe",
+      terms: ["rooftop", "views", "skyline"],
+      liveQuery: "rooftop bars",
+    },
+    {
+      id: "cocktails",
+      label: "Cocktails",
+      layer: "vibe",
+      terms: ["cocktail", "bar", "lounge"],
+      liveQuery: "cocktail bars",
+    },
+    {
+      id: "waterfront",
+      label: "Waterfront",
+      layer: "vibe",
+      terms: ["waterfront", "views"],
+      liveQuery: "waterfront spots",
+    },
+    {
+      id: "laptop",
+      label: "Laptop friendly",
+      layer: "vibe",
+      terms: ["laptop", "coffee", "cafe"],
+      liveQuery: "laptop friendly cafes",
+    },
   ],
 };
 
@@ -157,7 +337,10 @@ export const layerColor: Record<LayerId, string> = {
   vibe: "#2b68a8",
 };
 
-export const mapPresets: Record<Exclude<CityId, "nearby">, { lat: number; lng: number; zoom: number }> = {
+export const mapPresets: Record<
+  Exclude<CityId, "nearby">,
+  { lat: number; lng: number; zoom: number }
+> = {
   all: { lat: 40.724, lng: -73.995, zoom: 11 },
   nyc: { lat: 40.728, lng: -73.985, zoom: 12 },
   jc: { lat: 40.723, lng: -74.049, zoom: 13 },
@@ -415,9 +598,7 @@ export function inferLayerFromSearch(query: string, activeLayer: LayerId | "all"
   }
 
   if (
-    ["historic", "history", "landmark", "old", "museum"].some((term) =>
-      normalized.includes(term),
-    )
+    ["historic", "history", "landmark", "old", "museum"].some((term) => normalized.includes(term))
   ) {
     return "memory";
   }

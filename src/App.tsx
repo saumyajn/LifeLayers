@@ -112,7 +112,7 @@ function App() {
   }, [livePlaces]);
 
   const subcategoryOptions =
-    activeLayer === "all" ? [] : layerSubcategoryOptions[activeLayer] ?? [];
+    activeLayer === "all" ? [] : (layerSubcategoryOptions[activeLayer] ?? []);
   const activeSubcategory = subcategoryOptions.find((option) => option.id === subcategoryFilter);
   const effectiveLiveSearchQuery = liveSearchQuery || activeSubcategory?.liveQuery || "";
   const placesAreRefreshing = Boolean(googleApiKey && googleMapAvailable && liveStatus.loading);
@@ -187,9 +187,7 @@ function App() {
   const activeNeighborhoods = neighborhoods.filter((neighborhood) => {
     if (activeCity === "all") return true;
     if (activeCity === "nearby") return false;
-    return activeCity === "nyc"
-      ? neighborhood.city === "NYC"
-      : neighborhood.city === "Jersey City";
+    return activeCity === "nyc" ? neighborhood.city === "NYC" : neighborhood.city === "Jersey City";
   });
 
   const savedPlaces = savedIds
@@ -323,15 +321,44 @@ function App() {
         label: `Distance: ${searchRadiusMiles} mi`,
       });
     }
-    if (activeLayer !== "all" && layerLabel) chips.push({ id: "layer", label: `Layer: ${layerLabel}`, onClear: () => clearFilter("layer") });
-    if (priceFilter !== "all" && priceLabel) chips.push({ id: "price", label: `Price: ${priceLabel}`, onClear: () => clearFilter("price") });
-    if (activeSubcategory) chips.push({ id: "subcategory", label: `Option: ${activeSubcategory.label}`, onClear: () => clearFilter("subcategory") });
-    if (vibeFilter !== "all") chips.push({ id: "vibe", label: `Vibe: ${vibeFilter}`, onClear: () => clearFilter("vibe") });
-    if (pulseFilter !== "all" && pulseLabel) chips.push({ id: "pulse", label: `Pulse: ${pulseLabel}`, onClear: () => clearFilter("pulse") });
-    if (query) chips.push({ id: "query", label: `Search: ${query}`, onClear: () => clearFilter("query") });
-    if (liveSearchQuery) chips.push({ id: "live", label: `Live: ${liveSearchQuery}`, onClear: () => clearFilter("live") });
-    if (savedOnly) chips.push({ id: "saved", label: "Saved only", onClear: () => clearFilter("saved") });
-    if (sortMode !== "signal" && sortLabel) chips.push({ id: "sort", label: `Sort: ${sortLabel}`, onClear: () => clearFilter("sort") });
+    if (activeLayer !== "all" && layerLabel)
+      chips.push({
+        id: "layer",
+        label: `Layer: ${layerLabel}`,
+        onClear: () => clearFilter("layer"),
+      });
+    if (priceFilter !== "all" && priceLabel)
+      chips.push({
+        id: "price",
+        label: `Price: ${priceLabel}`,
+        onClear: () => clearFilter("price"),
+      });
+    if (activeSubcategory)
+      chips.push({
+        id: "subcategory",
+        label: `Option: ${activeSubcategory.label}`,
+        onClear: () => clearFilter("subcategory"),
+      });
+    if (vibeFilter !== "all")
+      chips.push({ id: "vibe", label: `Vibe: ${vibeFilter}`, onClear: () => clearFilter("vibe") });
+    if (pulseFilter !== "all" && pulseLabel)
+      chips.push({
+        id: "pulse",
+        label: `Pulse: ${pulseLabel}`,
+        onClear: () => clearFilter("pulse"),
+      });
+    if (query)
+      chips.push({ id: "query", label: `Search: ${query}`, onClear: () => clearFilter("query") });
+    if (liveSearchQuery)
+      chips.push({
+        id: "live",
+        label: `Live: ${liveSearchQuery}`,
+        onClear: () => clearFilter("live"),
+      });
+    if (savedOnly)
+      chips.push({ id: "saved", label: "Saved only", onClear: () => clearFilter("saved") });
+    if (sortMode !== "signal" && sortLabel)
+      chips.push({ id: "sort", label: `Sort: ${sortLabel}`, onClear: () => clearFilter("sort") });
 
     return chips;
   }, [
@@ -383,47 +410,50 @@ function App() {
     ],
   );
 
-  const requestBrowserLocation = useCallback((manual = false, precise = true) => {
-    if (!("geolocation" in navigator)) {
-      setLocationStatus("Location is not supported in this browser.");
-      if (manual) setActionStatus("This browser does not support location sharing.");
-      return;
-    }
+  const requestBrowserLocation = useCallback(
+    (manual = false, precise = true) => {
+      if (!("geolocation" in navigator)) {
+        setLocationStatus("Location is not supported in this browser.");
+        if (manual) setActionStatus("This browser does not support location sharing.");
+        return;
+      }
 
-    if (!manual && geolocationAttemptedRef.current) return;
+      if (!manual && geolocationAttemptedRef.current) return;
 
-    geolocationAttemptedRef.current = true;
-    setLocationStatus("Requesting your location...");
+      geolocationAttemptedRef.current = true;
+      setLocationStatus("Requesting your location...");
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const nextLocation: UserLocation = {
-          id: "current-location",
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-          label: "Current location",
-          source: "browser",
-          radiusMiles: searchRadiusMiles,
-          updatedAt: new Date().toISOString(),
-        };
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const nextLocation: UserLocation = {
+            id: "current-location",
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+            label: "Current location",
+            source: "browser",
+            radiusMiles: searchRadiusMiles,
+            updatedAt: new Date().toISOString(),
+          };
 
-        setUserLocation(nextLocation);
-        setActiveCity("nearby");
-        setLocationStatus("Using your current location.");
-        setActionStatus("LifeLayers is searching near your location.");
-      },
-      () => {
-        setLocationStatus("Location blocked. Showing fallback places.");
-        setActiveCity("all");
-        if (manual) setActionStatus("Location permission was blocked.");
-      },
-      {
-        enableHighAccuracy: precise,
-        maximumAge: precise ? 0 : 10 * 60 * 1000,
-        timeout: precise ? 12000 : 8000,
-      },
-    );
-  }, [searchRadiusMiles]);
+          setUserLocation(nextLocation);
+          setActiveCity("nearby");
+          setLocationStatus("Using your current location.");
+          setActionStatus("LifeLayers is searching near your location.");
+        },
+        () => {
+          setLocationStatus("Location blocked. Showing fallback places.");
+          setActiveCity("all");
+          if (manual) setActionStatus("Location permission was blocked.");
+        },
+        {
+          enableHighAccuracy: precise,
+          maximumAge: precise ? 0 : 10 * 60 * 1000,
+          timeout: precise ? 12000 : 8000,
+        },
+      );
+    },
+    [searchRadiusMiles],
+  );
 
   const findCityLocation = useCallback(async () => {
     const search = locationDraft.trim();
@@ -445,14 +475,17 @@ function App() {
       const google = (window as any).google;
       const geocoder = new google.maps.Geocoder();
       const result = await new Promise<Record<string, any>>((resolve, reject) => {
-        geocoder.geocode({ address: search }, (results: Array<Record<string, any>> | null, status: string) => {
-          if (status !== "OK" || !results?.[0]) {
-            reject(new Error(`Could not find "${search}". Try a city and state/country.`));
-            return;
-          }
+        geocoder.geocode(
+          { address: search },
+          (results: Array<Record<string, any>> | null, status: string) => {
+            if (status !== "OK" || !results?.[0]) {
+              reject(new Error(`Could not find "${search}". Try a city and state/country.`));
+              return;
+            }
 
-          resolve(results[0]);
-        });
+            resolve(results[0]);
+          },
+        );
       });
 
       const location = result.geometry?.location;
@@ -625,14 +658,12 @@ function App() {
               setSearchRadiusMiles(storedPreferences.searchRadiusMiles);
             }
             const restoredSavedLocations = Array.isArray(storedPreferences.savedLocations)
-              ? storedPreferences.savedLocations
-                  .filter(isUserLocation)
-                  .map((location) => ({
-                    ...location,
-                    id: location.id ?? normalizeLocationId(location),
-                    source: "saved" as const,
-                    radiusMiles: location.radiusMiles ?? storedPreferences.searchRadiusMiles ?? 25,
-                  }))
+              ? storedPreferences.savedLocations.filter(isUserLocation).map((location) => ({
+                  ...location,
+                  id: location.id ?? normalizeLocationId(location),
+                  source: "saved" as const,
+                  radiusMiles: location.radiusMiles ?? storedPreferences.searchRadiusMiles ?? 25,
+                }))
               : [];
 
             if (restoredSavedLocations.length) {
@@ -642,16 +673,18 @@ function App() {
             if (isUserLocation(storedPreferences.userLocation)) {
               const activeLocation: UserLocation = {
                 ...storedPreferences.userLocation,
-                id: storedPreferences.userLocation.id ?? normalizeLocationId(storedPreferences.userLocation),
+                id:
+                  storedPreferences.userLocation.id ??
+                  normalizeLocationId(storedPreferences.userLocation),
                 source:
                   storedPreferences.userLocation.source === "browser"
                     ? "browser"
                     : restoredSavedLocations.some(
-                        (location) =>
-                          location.id ===
-                          (storedPreferences.userLocation?.id ??
-                            normalizeLocationId(storedPreferences.userLocation as UserLocation)),
-                      )
+                          (location) =>
+                            location.id ===
+                            (storedPreferences.userLocation?.id ??
+                              normalizeLocationId(storedPreferences.userLocation as UserLocation)),
+                        )
                       ? "saved"
                       : storedPreferences.userLocation.source,
               };
@@ -660,14 +693,20 @@ function App() {
                 ...activeLocation,
                 label: activeLocation.label || "Saved location",
               });
-              setSearchRadiusMiles(activeLocation.radiusMiles ?? storedPreferences.searchRadiusMiles ?? 25);
+              setSearchRadiusMiles(
+                activeLocation.radiusMiles ?? storedPreferences.searchRadiusMiles ?? 25,
+              );
               setActiveCity("nearby");
               setLocationStatus(
-                activeLocation.source === "saved" ? "Using your saved city." : "Using your saved location.",
+                activeLocation.source === "saved"
+                  ? "Using your saved city."
+                  : "Using your saved location.",
               );
             } else if (restoredSavedLocations[0]) {
               setUserLocation(restoredSavedLocations[0]);
-              setSearchRadiusMiles(restoredSavedLocations[0].radiusMiles ?? storedPreferences.searchRadiusMiles ?? 25);
+              setSearchRadiusMiles(
+                restoredSavedLocations[0].radiusMiles ?? storedPreferences.searchRadiusMiles ?? 25,
+              );
               setActiveCity("nearby");
               setLocationStatus("Using your saved city.");
             } else {
@@ -742,9 +781,7 @@ function App() {
 
   const toggleSaved = (placeId: string) => {
     setSavedIds((current) =>
-      current.includes(placeId)
-        ? current.filter((id) => id !== placeId)
-        : [...current, placeId],
+      current.includes(placeId) ? current.filter((id) => id !== placeId) : [...current, placeId],
     );
   };
 
@@ -852,7 +889,10 @@ function App() {
 
   const submitReview = async () => {
     if (!currentUser) {
-      setReviewStatus({ placeId: selectedPlace.id, message: "Sign in with Google to save reviews." });
+      setReviewStatus({
+        placeId: selectedPlace.id,
+        message: "Sign in with Google to save reviews.",
+      });
       return;
     }
 
@@ -881,11 +921,12 @@ function App() {
   };
 
   const getPlanTitle = () => {
-    const cityLabel = activeCity === "nearby" && userLocation ? userLocation.label : "Current location";
+    const cityLabel =
+      activeCity === "nearby" && userLocation ? userLocation.label : "Current location";
     const layerLabel =
       activeLayer === "all"
         ? "all layers"
-        : layers.find((layer) => layer.id === activeLayer)?.label.toLowerCase() ?? activeLayer;
+        : (layers.find((layer) => layer.id === activeLayer)?.label.toLowerCase() ?? activeLayer);
 
     return `LifeLayers ${cityLabel} ${layerLabel} plan`;
   };

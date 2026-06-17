@@ -60,7 +60,11 @@ export const isFirebaseConfigured = [
   firebaseConfig.appId,
 ].every(Boolean);
 
-const app = isFirebaseConfigured ? (getApps().length ? getApp() : initializeApp(firebaseConfig)) : null;
+const app = isFirebaseConfigured
+  ? getApps().length
+    ? getApp()
+    : initializeApp(firebaseConfig)
+  : null;
 const auth = app ? getAuth(app) : null;
 const db = app ? getFirestore(app) : null;
 

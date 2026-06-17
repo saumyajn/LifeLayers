@@ -238,7 +238,8 @@ export function loadGoogleMaps(apiKey: string) {
       apiKey,
     )}&v=weekly&loading=async&libraries=places,geometry&callback=initLifeLayersGoogle`;
     script.async = true;
-    script.onerror = () => fail("Google Maps failed to load. Check the API key and network access.");
+    script.onerror = () =>
+      fail("Google Maps failed to load. Check the API key and network access.");
     document.head.appendChild(script);
   });
 
@@ -278,15 +279,35 @@ function getSearchSpecs(
       : activeCity === "nearby"
         ? []
         : activeCity === "all"
-      ? [
-          { id: "nyc" as const, name: "New York City", city: "NYC" as const, preset: mapPresets.nyc },
-          { id: "jc" as const, name: "Jersey City", city: "Jersey City" as const, preset: mapPresets.jc },
-        ]
-      : [
-          activeCity === "nyc"
-            ? { id: "nyc" as const, name: "New York City", city: "NYC" as const, preset: mapPresets.nyc }
-            : { id: "jc" as const, name: "Jersey City", city: "Jersey City" as const, preset: mapPresets.jc },
-        ];
+          ? [
+              {
+                id: "nyc" as const,
+                name: "New York City",
+                city: "NYC" as const,
+                preset: mapPresets.nyc,
+              },
+              {
+                id: "jc" as const,
+                name: "Jersey City",
+                city: "Jersey City" as const,
+                preset: mapPresets.jc,
+              },
+            ]
+          : [
+              activeCity === "nyc"
+                ? {
+                    id: "nyc" as const,
+                    name: "New York City",
+                    city: "NYC" as const,
+                    preset: mapPresets.nyc,
+                  }
+                : {
+                    id: "jc" as const,
+                    name: "Jersey City",
+                    city: "Jersey City" as const,
+                    preset: mapPresets.jc,
+                  },
+            ];
 
   const trimmedSearch = liveSearchQuery.trim();
 
@@ -371,7 +392,9 @@ function placeFromGoogleResult(
         : "Place";
   const price = priceFromGoogle(result.price_level);
   const neighborhood =
-    city === "Near you" ? result.vicinity ?? "Near your location" : estimateNeighborhood(lat, lng, city);
+    city === "Near you"
+      ? (result.vicinity ?? "Near your location")
+      : estimateNeighborhood(lat, lng, city);
   const signal = googleSignal(rating, total);
   const name = String(result.name);
   const firstPhoto = Array.isArray(result.photos) ? result.photos[0] : undefined;
@@ -397,7 +420,10 @@ function placeFromGoogleResult(
       layer === "eat" ? (price === "$" ? "budget" : "dining") : kind,
       searchTag,
     ].filter((tag): tag is string => Boolean(tag)),
-    vibe: [layer === "eat" ? "food" : "discoverable", rating && rating >= 4.5 ? "high-rated" : "active"],
+    vibe: [
+      layer === "eat" ? "food" : "discoverable",
+      rating && rating >= 4.5 ? "high-rated" : "active",
+    ],
     x: 0,
     y: 0,
     lat,
@@ -416,7 +442,8 @@ function placeFromGoogleResult(
     summary: `${name} is a live Google Places result${
       rating ? ` rated ${rating.toFixed(1)}` : ""
     }${total ? ` from ${total.toLocaleString()} reviews` : ""}.`,
-    localTip: result.formatted_address ?? result.vicinity ?? "Open in Google Maps for the latest details.",
+    localTip:
+      result.formatted_address ?? result.vicinity ?? "Open in Google Maps for the latest details.",
     memory:
       layer === "memory"
         ? "Google identifies this as a cultural or landmark place; LifeLayers can add story context later."
@@ -424,7 +451,8 @@ function placeFromGoogleResult(
     reddit: {
       subreddits: ["Google Places"],
       pulse: total && total > 1000 ? "Classic" : rating && rating >= 4.5 ? "Rising" : "Steady",
-      consensus: "Sourced from Google Places. Reddit/community interpretation can be layered on top.",
+      consensus:
+        "Sourced from Google Places. Reddit/community interpretation can be layered on top.",
       warnings: ["Check hours and availability before going"],
     },
   };
@@ -506,7 +534,11 @@ export function GoogleLiveMap({
   selectedPlace: Place;
   userLocation?: UserLocation | null;
   searchRadiusMiles: number;
-  onViewportChange: (center: { lat: number; lng: number }, radiusMiles: number, zoom: number) => void;
+  onViewportChange: (
+    center: { lat: number; lng: number },
+    radiusMiles: number,
+    zoom: number,
+  ) => void;
   onPickPlace: (place: Place) => void;
   onLivePlaces: (places: Place[]) => void;
   onStatus: (status: LiveStatus) => void;
@@ -597,7 +629,13 @@ export function GoogleLiveMap({
 
     if (!mapsReady || !google || !service) return;
 
-    const specs = getSearchSpecs(activeCity, activeLayer, liveSearchQuery, userLocation, searchRadiusMiles);
+    const specs = getSearchSpecs(
+      activeCity,
+      activeLayer,
+      liveSearchQuery,
+      userLocation,
+      searchRadiusMiles,
+    );
     if (!specs.length) {
       onLivePlaces([]);
       onStatus({
@@ -663,7 +701,16 @@ export function GoogleLiveMap({
     return () => {
       cancelled = true;
     };
-  }, [activeCity, activeLayer, liveSearchQuery, mapsReady, onLivePlaces, onStatus, searchRadiusMiles, userLocation]);
+  }, [
+    activeCity,
+    activeLayer,
+    liveSearchQuery,
+    mapsReady,
+    onLivePlaces,
+    onStatus,
+    searchRadiusMiles,
+    userLocation,
+  ]);
 
   useEffect(() => {
     const google = (window as any).google;

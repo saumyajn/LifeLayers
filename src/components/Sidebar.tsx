@@ -99,7 +99,9 @@ export function Sidebar({
           <span className="layer-symbol all">A</span>
           <span>
             <strong>All</strong>
-            <small>{allPlaces.filter((place) => cityMatches(place, activeCity)).length} city signals</small>
+            <small>
+              {allPlaces.filter((place) => cityMatches(place, activeCity)).length} city signals
+            </small>
           </span>
         </button>
         {layers.map((layer) => (
@@ -151,7 +153,10 @@ export function Sidebar({
 
         <label>
           Price
-          <select value={priceFilter} onChange={(event) => onPriceChange(event.target.value as PriceFilter)}>
+          <select
+            value={priceFilter}
+            onChange={(event) => onPriceChange(event.target.value as PriceFilter)}
+          >
             {priceOptions.map((option) => (
               <option key={option.id} value={option.id}>
                 {option.label}
@@ -173,7 +178,10 @@ export function Sidebar({
 
         <label>
           Reddit pulse
-          <select value={pulseFilter} onChange={(event) => onPulseChange(event.target.value as PulseFilter)}>
+          <select
+            value={pulseFilter}
+            onChange={(event) => onPulseChange(event.target.value as PulseFilter)}
+          >
             {pulseOptions.map((option) => (
               <option key={option.id} value={option.id}>
                 {option.label}
@@ -184,7 +192,10 @@ export function Sidebar({
 
         <label>
           Sort
-          <select value={sortMode} onChange={(event) => onSortChange(event.target.value as SortMode)}>
+          <select
+            value={sortMode}
+            onChange={(event) => onSortChange(event.target.value as SortMode)}
+          >
             {sortOptions.map((option) => (
               <option key={option.id} value={option.id}>
                 {option.label}

@@ -2,7 +2,12 @@
   color: #1e2525;
   background: #f4f0e8;
   font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
     sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -64,8 +69,7 @@ select:focus-visible {
   overflow: hidden;
   background:
     linear-gradient(135deg, rgba(221, 234, 222, 0.74), rgba(248, 244, 236, 0.1) 36%),
-    radial-gradient(circle at 14% 18%, rgba(216, 83, 47, 0.12), transparent 26%),
-    #f4f0e8;
+    radial-gradient(circle at 14% 18%, rgba(216, 83, 47, 0.12), transparent 26%), #f4f0e8;
 }
 
 .topbar {
@@ -541,7 +545,7 @@ kbd {
   gap: 12px;
 }
 
-.map-toolbar>div:first-child {
+.map-toolbar > div:first-child {
   min-width: 220px;
 }
 
@@ -680,7 +684,7 @@ kbd {
   background: linear-gradient(135deg, rgba(255, 250, 240, 0.94), rgba(224, 234, 223, 0.72));
 }
 
-.source-bar>div:first-child {
+.source-bar > div:first-child {
   display: grid;
   grid-template-columns: auto 1fr;
   column-gap: 8px;
@@ -919,7 +923,7 @@ kbd {
   transform-origin: center;
 }
 
-.discovery-layout>.city-map {
+.discovery-layout > .city-map {
   height: 100%;
   min-height: 0;
 }
@@ -970,8 +974,20 @@ kbd {
   z-index: 1;
   pointer-events: none;
   background:
-    linear-gradient(to bottom, rgba(30, 37, 37, 0.18), transparent 18%, transparent 80%, rgba(30, 37, 37, 0.14)),
-    linear-gradient(to right, rgba(30, 37, 37, 0.12), transparent 14%, transparent 86%, rgba(30, 37, 37, 0.08));
+    linear-gradient(
+      to bottom,
+      rgba(30, 37, 37, 0.18),
+      transparent 18%,
+      transparent 80%,
+      rgba(30, 37, 37, 0.14)
+    ),
+    linear-gradient(
+      to right,
+      rgba(30, 37, 37, 0.12),
+      transparent 14%,
+      transparent 86%,
+      rgba(30, 37, 37, 0.08)
+    );
 }
 
 .map-controls {
@@ -1332,11 +1348,13 @@ meter {
   border-radius: 8px;
   background:
     linear-gradient(135deg, color-mix(in srgb, var(--accent), #fffaf0 46%), transparent 54%),
-    repeating-linear-gradient(90deg,
+    repeating-linear-gradient(
+      90deg,
       rgba(255, 250, 240, 0.26),
       rgba(255, 250, 240, 0.26) 10px,
       rgba(30, 37, 37, 0.08) 10px,
-      rgba(30, 37, 37, 0.08) 20px),
+      rgba(30, 37, 37, 0.08) 20px
+    ),
     var(--accent);
 }
 
@@ -1813,7 +1831,7 @@ meter {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .discovery-layout>.city-map {
+  .discovery-layout > .city-map {
     height: auto;
     min-height: 430px;
   }
@@ -2223,7 +2241,7 @@ h1 {
   background: #d9e3d6;
 }
 
-.discovery-layout>.city-map,
+.discovery-layout > .city-map,
 .google-map-shell {
   height: 100%;
   min-height: 430px;
@@ -2302,8 +2320,11 @@ h1 {
 
 .place-visual {
   min-height: 118px;
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--accent), #ffffff 50%), color-mix(in srgb, var(--accent), #15201f 30%));
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--accent), #ffffff 50%),
+    color-mix(in srgb, var(--accent), #15201f 30%)
+  );
 }
 
 .place-visual strong {
@@ -2397,7 +2418,7 @@ h1 {
   }
 
   .city-map,
-  .discovery-layout>.city-map,
+  .discovery-layout > .city-map,
   .google-map-shell {
     min-height: 420px;
   }
@@ -2425,7 +2446,7 @@ h1 {
   }
 
   .city-map,
-  .discovery-layout>.city-map,
+  .discovery-layout > .city-map,
   .google-map-shell {
     min-height: 380px;
   }
@@ -2511,7 +2532,6 @@ h1 {
 }
 
 @media (max-width: 560px) {
-
   .workspace,
   .left-rail,
   .map-stage,
@@ -2616,7 +2636,7 @@ body {
   overflow: visible;
 }
 
-.discovery-layout>.city-map,
+.discovery-layout > .city-map,
 .google-map-shell {
   position: sticky;
   top: 90px;
@@ -2686,7 +2706,7 @@ body {
   justify-content: space-between;
 }
 
-.result-topline>span:last-child,
+.result-topline > span:last-child,
 .result-address {
   color: var(--muted);
   font-size: 0.72rem;
@@ -2782,7 +2802,7 @@ body {
     order: 2;
   }
 
-  .discovery-layout>.city-map,
+  .discovery-layout > .city-map,
   .google-map-shell {
     order: 2;
     position: relative;
@@ -2877,7 +2897,8 @@ body {
 /* Location-first controls: saved city or near me, no hardcoded city tabs */
 .topbar {
   grid-template-columns:
-    minmax(180px, 0.58fr) minmax(250px, 0.85fr) minmax(360px, 1.2fr) minmax(150px, auto) minmax(190px, 0.58fr);
+    minmax(180px, 0.58fr) minmax(250px, 0.85fr) minmax(360px, 1.2fr) minmax(150px, auto)
+    minmax(190px, 0.58fr);
 }
 
 .location-tabs {

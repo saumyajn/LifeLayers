@@ -292,7 +292,8 @@ export const places: Place[] = [
     freshness: "Classic",
     summary: "A preserved piece of old New York that still shows up in bar debates.",
     localTip: "Treat it as a history stop, not a long quiet night.",
-    memory: "Sawdust floors, old walls, and a bar identity older than most neighborhoods' current storefronts.",
+    memory:
+      "Sawdust floors, old walls, and a bar identity older than most neighborhoods' current storefronts.",
     reddit: {
       subreddits: ["r/AskNYC", "r/nyc"],
       pulse: "Classic",
@@ -373,7 +374,8 @@ export const places: Place[] = [
     freshness: "Classic",
     summary: "A tiny sugar archive that still feels like a neighborhood time capsule.",
     localTip: "Use it as a small stop between LES galleries and dinner.",
-    memory: "A reminder that small specialty shops are part of the city's emotional infrastructure.",
+    memory:
+      "A reminder that small specialty shops are part of the city's emotional infrastructure.",
     reddit: {
       subreddits: ["r/AskNYC", "r/nyc"],
       pulse: "Classic",
@@ -508,7 +510,8 @@ export const places: Place[] = [
     freshness: "Steady",
     summary: "A reliable Downtown JC cocktail pick when the brief is dim, easy, and not too loud.",
     localTip: "Best after dinner, especially if you want to avoid a full Hoboken-style night.",
-    memory: "Part of the Grove Street evening circuit that made JC feel less like a Manhattan waiting room.",
+    memory:
+      "Part of the Grove Street evening circuit that made JC feel less like a Manhattan waiting room.",
     reddit: {
       subreddits: ["r/jerseycity"],
       pulse: "Steady",
@@ -533,13 +536,16 @@ export const places: Place[] = [
     signal: 92,
     mentions: 147,
     freshness: "Always active",
-    summary: "The biggest JC outdoor payoff: Statue of Liberty views, huge paths, and skyline perspective.",
+    summary:
+      "The biggest JC outdoor payoff: Statue of Liberty views, huge paths, and skyline perspective.",
     localTip: "Bring layers. The waterfront wind can change the entire plan.",
-    memory: "A civic backyard with immigration history, skyline drama, and long-running local park debates.",
+    memory:
+      "A civic backyard with immigration history, skyline drama, and long-running local park debates.",
     reddit: {
       subreddits: ["r/jerseycity", "r/newjersey"],
       pulse: "Steady",
-      consensus: "Essential for views and space, but less convenient without planning transit or bikes.",
+      consensus:
+        "Essential for views and space, but less convenient without planning transit or bikes.",
       warnings: ["Windy", "Some areas feel spread out"],
     },
   },
@@ -560,9 +566,11 @@ export const places: Place[] = [
     signal: 81,
     mentions: 78,
     freshness: "Seasonal",
-    summary: "A waterfront food-and-drink option that works best when the weather is doing half the job.",
+    summary:
+      "A waterfront food-and-drink option that works best when the weather is doing half the job.",
     localTip: "Check hours before planning around it, then walk the waterfront after.",
-    memory: "Shows the newer side of JC: skyline-facing, group-friendly, and designed for lingering.",
+    memory:
+      "Shows the newer side of JC: skyline-facing, group-friendly, and designed for lingering.",
     reddit: {
       subreddits: ["r/jerseycity"],
       pulse: "Rising",
@@ -697,7 +705,8 @@ export const places: Place[] = [
     freshness: "Classic",
     summary: "A dependable late-night and comfort-food answer with deep East Village identity.",
     localTip: "Pierogi and borscht are the obvious move, especially late.",
-    memory: "A neighborhood landmark that connects food, immigration, students, and after-hours NYC.",
+    memory:
+      "A neighborhood landmark that connects food, immigration, students, and after-hours NYC.",
     reddit: {
       subreddits: ["r/AskNYC", "r/FoodNYC"],
       pulse: "Classic",
@@ -749,7 +758,8 @@ export const places: Place[] = [
     signal: 86,
     mentions: 112,
     freshness: "Steady",
-    summary: "A Williamsburg pasta reservation that still anchors many restaurant recommendation threads.",
+    summary:
+      "A Williamsburg pasta reservation that still anchors many restaurant recommendation threads.",
     localTip: "Make it the centerpiece and add a waterfront walk after.",
     memory: "A sign of Williamsburg's shift into destination dining.",
     reddit: {
@@ -886,7 +896,8 @@ export const places: Place[] = [
     freshness: "Classic",
     summary: "A converted rail line that makes urban reuse visible block by block.",
     localTip: "Go early or off-season if you want to notice the design instead of the crowd.",
-    memory: "Industrial infrastructure turned into one of the city's most copied public-space ideas.",
+    memory:
+      "Industrial infrastructure turned into one of the city's most copied public-space ideas.",
     reddit: {
       subreddits: ["r/AskNYC", "r/urbanplanning"],
       pulse: "Classic",
@@ -911,7 +922,8 @@ export const places: Place[] = [
     signal: 84,
     mentions: 97,
     freshness: "Always active",
-    summary: "One of the city's most practical public spaces: work break, date pause, or seasonal stop.",
+    summary:
+      "One of the city's most practical public spaces: work break, date pause, or seasonal stop.",
     localTip: "Use it as a reset point between Midtown plans.",
     memory: "A park that shows how programming can turn a small rectangle into a city living room.",
     reddit: {
@@ -938,7 +950,8 @@ export const places: Place[] = [
     signal: 81,
     mentions: 74,
     freshness: "Steady",
-    summary: "A low-friction morning or lunch stop that feels more local than many downtown attractions.",
+    summary:
+      "A low-friction morning or lunch stop that feels more local than many downtown attractions.",
     localTip: "Go earlier for browsing, later for people-watching.",
     memory: "A weekly rhythm that keeps farm, food, and city routines connected.",
     reddit: {
@@ -965,9 +978,11 @@ export const places: Place[] = [
     signal: 95,
     mentions: 244,
     freshness: "Hot this month",
-    summary: "A recurring Reddit pattern: West Village wins when people ask for charming date-night density.",
+    summary:
+      "A recurring Reddit pattern: West Village wins when people ask for charming date-night density.",
     localTip: "Pick one anchor reservation and leave the rest of the walk unscheduled.",
-    memory: "The Village keeps absorbing new restaurants while preserving a date-night street texture.",
+    memory:
+      "The Village keeps absorbing new restaurants while preserving a date-night street texture.",
     reddit: {
       subreddits: ["r/AskNYC", "r/FoodNYC"],
       pulse: "Rising",
@@ -992,13 +1007,15 @@ export const places: Place[] = [
     signal: 93,
     mentions: 221,
     freshness: "Hot this month",
-    summary: "A dense Reddit signal around PATH access, rent tradeoffs, safety perception, and food blocks.",
+    summary:
+      "A dense Reddit signal around PATH access, rent tradeoffs, safety perception, and food blocks.",
     localTip: "Compare Grove, Exchange Place, Journal Square, and the Heights before choosing.",
     memory: "A live record of JC's shift from alternative-to-NYC to its own decision.",
     reddit: {
       subreddits: ["r/jerseycity", "r/newjersey"],
       pulse: "Rising",
-      consensus: "People like walkability and access, but argue about rent, noise, and building quality.",
+      consensus:
+        "People like walkability and access, but argue about rent, noise, and building quality.",
       warnings: ["Rent jumps", "PATH weekend service complaints"],
     },
   },
@@ -1019,13 +1036,15 @@ export const places: Place[] = [
     signal: 96,
     mentions: 276,
     freshness: "Hot this month",
-    summary: "A strong Reddit consensus zone for value eating, especially dumplings, noodles, bakeries, and cash spots.",
+    summary:
+      "A strong Reddit consensus zone for value eating, especially dumplings, noodles, bakeries, and cash spots.",
     localTip: "Search by dish, not just restaurant name.",
     memory: "A neighborhood where food advice also carries preservation and affordability context.",
     reddit: {
       subreddits: ["r/FoodNYC", "r/AskNYC"],
       pulse: "Rising",
-      consensus: "The best cheap-eats density downtown, with many small spots beating broader review rankings.",
+      consensus:
+        "The best cheap-eats density downtown, with many small spots beating broader review rankings.",
       warnings: ["Cash-only spots", "Hours change"],
     },
   },
@@ -1046,13 +1065,15 @@ export const places: Place[] = [
     signal: 84,
     mentions: 152,
     freshness: "Steady",
-    summary: "Reddit treats Williamsburg as useful but crowded: good food, good walks, easy to overpay.",
+    summary:
+      "Reddit treats Williamsburg as useful but crowded: good food, good walks, easy to overpay.",
     localTip: "Balance one hyped stop with one low-key park or shop.",
     memory: "A live argument between old nightlife Williamsburg and newer polished Williamsburg.",
     reddit: {
       subreddits: ["r/Brooklyn", "r/AskNYC"],
       pulse: "Steady",
-      consensus: "Good for visitors and groups, but locals warn against letting hype choose the whole day.",
+      consensus:
+        "Good for visitors and groups, but locals warn against letting hype choose the whole day.",
       warnings: ["Weekend crowding", "Expensive casual food"],
     },
   },
@@ -1073,7 +1094,8 @@ export const places: Place[] = [
     signal: 77,
     mentions: 89,
     freshness: "Quiet favorite",
-    summary: "A quieter Reddit pattern around museums, breweries, skyline views, and lower-pressure Queens days.",
+    summary:
+      "A quieter Reddit pattern around museums, breweries, skyline views, and lower-pressure Queens days.",
     localTip: "Pair one indoor cultural stop with one waterfront view if the weather clears.",
     memory: "A neighborhood still balancing industrial memory, towers, and arts infrastructure.",
     reddit: {
@@ -1102,7 +1124,8 @@ export const places: Place[] = [
     freshness: "Classic",
     summary: "A small old-street pocket where FiDi's colonial layer and after-work crowd collide.",
     localTip: "Use it as a short stop before walking to the waterfront.",
-    memory: "One of the clearest visual reminders that lower Manhattan has older street logic beneath the towers.",
+    memory:
+      "One of the clearest visual reminders that lower Manhattan has older street logic beneath the towers.",
     reddit: {
       subreddits: ["r/AskNYC", "r/nyc"],
       pulse: "Classic",
@@ -1127,9 +1150,11 @@ export const places: Place[] = [
     signal: 76,
     mentions: 54,
     freshness: "Classic",
-    summary: "A huge industrial-era remnant on a waterfront that now reads as polished office-and-residential space.",
+    summary:
+      "A huge industrial-era remnant on a waterfront that now reads as polished office-and-residential space.",
     localTip: "Walk from Exchange Place toward Liberty State Park for the best context.",
-    memory: "A visible trace of JC's manufacturing past left in the middle of skyline redevelopment.",
+    memory:
+      "A visible trace of JC's manufacturing past left in the middle of skyline redevelopment.",
     reddit: {
       subreddits: ["r/jerseycity"],
       pulse: "Classic",
@@ -1156,7 +1181,8 @@ export const places: Place[] = [
     freshness: "Quiet favorite",
     summary: "A small Downtown JC reset button: less skyline, more neighborhood.",
     localTip: "Use it between Grove Street food stops instead of rushing to the waterfront.",
-    memory: "A residential green square that keeps Downtown JC from feeling only transit-and-towers.",
+    memory:
+      "A residential green square that keeps Downtown JC from feeling only transit-and-towers.",
     reddit: {
       subreddits: ["r/jerseycity"],
       pulse: "Quiet",

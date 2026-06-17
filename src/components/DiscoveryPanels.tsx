@@ -173,12 +173,7 @@ export function ResultsBoard({
               >
                 <button className="result-main" onClick={() => onPick(place)}>
                   {place.photoUrl && (
-                    <img
-                      className="result-photo"
-                      src={place.photoUrl}
-                      alt=""
-                      loading="lazy"
-                    />
+                    <img className="result-photo" src={place.photoUrl} alt="" loading="lazy" />
                   )}
                   <span className="result-topline">
                     <span className="result-layer">{layer?.label ?? place.layer}</span>
@@ -243,11 +238,18 @@ export function ActiveFilterBar({
       <div>
         <p className="eyebrow">Active filters</p>
         <div className="active-filter-chips">
-          {activePresetLabel && <span className="active-preset-chip">Preset: {activePresetLabel}</span>}
+          {activePresetLabel && (
+            <span className="active-preset-chip">Preset: {activePresetLabel}</span>
+          )}
           {chips.length ? (
             chips.map((chip) =>
               chip.onClear ? (
-                <button key={chip.id} type="button" onClick={chip.onClear} aria-label={`Clear ${chip.label}`}>
+                <button
+                  key={chip.id}
+                  type="button"
+                  onClick={chip.onClear}
+                  aria-label={`Clear ${chip.label}`}
+                >
                   {chip.label}
                 </button>
               ) : (

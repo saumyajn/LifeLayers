@@ -44,9 +44,7 @@ export function PlaceDetail({
           } as CSSProperties
         }
       >
-        {place.photoUrl && (
-          <img src={place.photoUrl} alt="" loading="lazy" />
-        )}
+        {place.photoUrl && <img src={place.photoUrl} alt="" loading="lazy" />}
         <span>{place.kind}</span>
         <strong>{place.neighborhood}</strong>
       </div>
@@ -79,7 +77,9 @@ export function PlaceDetail({
           <small>{place.source === "google" ? "Reviews" : "Mentions"}</small>
         </div>
         <div>
-          <span>{place.openNow === undefined ? place.reddit.pulse : place.openNow ? "Open" : "Check"}</span>
+          <span>
+            {place.openNow === undefined ? place.reddit.pulse : place.openNow ? "Open" : "Check"}
+          </span>
           <small>{place.source === "google" ? "Hours" : "Pulse"}</small>
         </div>
       </div>
@@ -130,7 +130,10 @@ export function PlaceDetail({
           <div className="review-form">
             <label>
               Rating
-              <select value={reviewRating} onChange={(event) => onReviewRatingChange(Number(event.target.value))}>
+              <select
+                value={reviewRating}
+                onChange={(event) => onReviewRatingChange(Number(event.target.value))}
+              >
                 {[5, 4, 3, 2, 1].map((rating) => (
                   <option key={rating} value={rating}>
                     {rating} / 5
@@ -158,7 +161,11 @@ export function PlaceDetail({
           </div>
         ) : (
           <div className="review-signin">
-            <button className="secondary-action" disabled={!firebaseConfigured} onClick={onRequestSignIn}>
+            <button
+              className="secondary-action"
+              disabled={!firebaseConfigured}
+              onClick={onRequestSignIn}
+            >
               Sign in to review
             </button>
             {!firebaseConfigured && <small>Firebase is not configured yet.</small>}

@@ -34,8 +34,7 @@ export function TopBar({
   onUseCurrentLocation,
   onOpenPalette,
 }: TopBarProps) {
-  const activeSavedLocationId =
-    userLocation?.source === "saved" ? userLocation.id ?? "" : "";
+  const activeSavedLocationId = userLocation?.source === "saved" ? (userLocation.id ?? "") : "";
   const canSaveLocation =
     Boolean(userLocation) &&
     !savedLocations.some((location) => location.id && location.id === userLocation?.id);
@@ -118,10 +117,7 @@ export function TopBar({
         >
           Near me
         </button>
-        <button
-          disabled={!canSaveLocation}
-          onClick={onSaveLocation}
-        >
+        <button disabled={!canSaveLocation} onClick={onSaveLocation}>
           Save city
         </button>
       </div>
