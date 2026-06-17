@@ -2,8 +2,11 @@ dist
 node_modules
 *.tsbuildinfo
 *.log
+.codex/
 .env
+.env.local
 .env.*
+.env.*.local
 !.env.example
 vite.config.js
 vite.config.d.ts

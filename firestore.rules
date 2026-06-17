@@ -1,0 +1,97 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function ownsUserDocument(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function validReviewCreate() {
+      return signedIn()
+        // Reviews are user-owned. A client cannot create a review for another uid.
+        && request.resource.data.userId == request.auth.uid
+        // Keep the public review document intentionally narrow.
+        && request.resource.data.keys().hasOnly([
+          'userId',
+          'userName',
+          'userEmail',
+          'placeId',
+          'googlePlaceId',
+          'placeName',
+          'city',
+          'neighborhood',
+          'layer',
+          'kind',
+          'rating',
+          'text',
+          'source',
+          'createdAt'
+        ])
+        && request.resource.data.placeId is string
+        && request.resource.data.placeId.size() > 0
+        && request.resource.data.placeId.size() <= 200
+        && request.resource.data.placeName is string
+        && request.resource.data.placeName.size() > 0
+        && request.resource.data.placeName.size() <= 200
+        && request.resource.data.rating is number
+        && request.resource.data.rating >= 1
+        && request.resource.data.rating <= 5
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 2000
+        && request.resource.data.city is string
+        && request.resource.data.neighborhood is string
+        && request.resource.data.layer is string
+        && request.resource.data.kind is string
+        && request.resource.data.source in ['curated', 'google'];
+    }
+
+    function validReviewUpdate() {
+      return signedIn()
+        // Users may only edit their own review documents, and ownership cannot change.
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'rating',
+          'text',
+          'updatedAt'
+        ])
+        && request.resource.data.rating is number
+        && request.resource.data.rating >= 1
+        && request.resource.data.rating <= 5
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 2000;
+    }
+
+    match /users/{userId} {
+      // Private user profile and preferences: only the signed-in owner can read or write.
+      allow read: if ownsUserDocument(userId);
+
+      allow create, update: if ownsUserDocument(userId)
+        // User documents should only contain app-managed profile/preferences metadata.
+        && request.resource.data.keys().hasOnly(['profile', 'preferences', 'updatedAt'])
+        && request.resource.data.profile is map
+        && request.resource.data.preferences is map;
+
+      allow delete: if false;
+    }
+
+    match /reviews/{reviewId} {
+      // Reviews are public discovery content, but only signed-in users can create them.
+      allow read: if true;
+      allow create: if validReviewCreate();
+      allow update: if validReviewUpdate();
+      allow delete: if signedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    match /{document=**} {
+      // Deny every other collection by default so new data is not accidentally public.
+      allow read, write: if false;
+    }
+  }
+}

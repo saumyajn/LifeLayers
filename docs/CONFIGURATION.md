@@ -11,7 +11,6 @@ Use this for the real map UI and live Google Places search.
 3. Enable billing for the project. Google requires billing for production Maps usage.
 4. Enable these APIs:
    - Maps JavaScript API
-   //AIzaSyDHfefzElv_6fp6FRM74jCmQWkAWcVJVFM
    - Places API
 5. Create an API key in APIs & Services > Credentials.
 
@@ -29,8 +28,14 @@ Use this for the real map UI and live Google Places search.
 7. Add the key to `.env.local`:
 
 ```env
-VITE_GOOGLE_MAPS_API_KEY=your_google_maps_browser_key_here
+GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here
 ```
+
+Security notes:
+- Never commit real API keys, Firebase config values, service account files, or copied production credentials.
+- If a key is exposed in docs, git history, screenshots, chat, or logs, rotate it before launch.
+- Restrict Google Maps keys by HTTP referrer and by API. Production keys should only allow the deployed domain and only the Maps JavaScript API and Places API used by LifeLayers.
+- Use a separate local development key where possible.
 
 Official references:
 - Google Maps JavaScript setup: https://developers.google.com/maps/documentation/javascript/get-api-key
@@ -47,12 +52,12 @@ Use Firebase for Google login, saved user preferences, and user reviews.
 5. Add the values to `.env.local`:
 
 ```env
-VITE_FIREBASE_API_KEY=your_firebase_api_key_here
-VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=your_project_id
-VITE_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
-VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
-VITE_FIREBASE_APP_ID=your_firebase_app_id
+FIREBASE_API_KEY=your_firebase_api_key_here
+FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+FIREBASE_PROJECT_ID=your_project_id
+FIREBASE_STORAGE_BUCKET=your_project.appspot.com
+FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+FIREBASE_APP_ID=your_firebase_app_id
 ```
 
 Official reference:
@@ -81,42 +86,19 @@ Official references:
 2. Create a database.
 3. Choose Production mode.
 4. Pick a region close to your users, for example a US region for NYC/Jersey City.
-5. Publish Firestore Security Rules.
+5. Publish Firestore Security Rules from the project root `firestore.rules` file before launch.
 
-Recommended starting rules:
+The committed `firestore.rules` file is the source of truth. It uses this security model:
+- Users can read and write only their own `/users/{uid}` profile/preferences document.
+- Reviews are publicly readable discovery content.
+- Only signed-in users can create reviews, and each review must belong to the signed-in user.
+- Review edits and deletes are limited to the original author.
+- All other collections are denied by default.
 
-```js
-rules_version = '2';
+Deploy rules with the Firebase CLI after selecting the correct Firebase project:
 
-service cloud.firestore {
-  match /databases/{database}/documents {
-    function signedIn() {
-      return request.auth != null;
-    }
-
-    match /users/{userId} {
-      allow read, write: if signedIn() && request.auth.uid == userId;
-    }
-
-    match /reviews/{reviewId} {
-      allow read: if true;
-
-      allow create: if signedIn()
-        && request.resource.data.userId == request.auth.uid
-        && request.resource.data.placeId is string
-        && request.resource.data.placeName is string
-        && request.resource.data.rating is number
-        && request.resource.data.rating >= 1
-        && request.resource.data.rating <= 5
-        && request.resource.data.text is string
-        && request.resource.data.text.size() <= 2000;
-
-      allow update, delete: if signedIn()
-        && resource.data.userId == request.auth.uid
-        && request.resource.data.userId == request.auth.uid;
-    }
-  }
-}
+```powershell
+firebase deploy --only firestore:rules
 ```
 
 Official references:
@@ -152,10 +134,13 @@ npm.cmd run build
 ## 6. Production Checklist
 
 - Keep `.env.local` private and never commit it.
+- Never commit API keys or secret-like values in docs, examples, screenshots, logs, or source files.
+- Rotate any exposed Google Maps or Firebase keys before public launch.
 - Add deployed domains to Google Maps API key HTTP referrer restrictions.
 - Add deployed domains to Firebase Auth authorized domains.
 - Keep Maps API restrictions limited to the APIs this app uses.
 - Keep Firestore in Production mode with explicit rules.
 - Enable Firebase App Check before public launch.
+- Deploy `firestore.rules` before launch and verify reads/writes with a signed-in and signed-out user.
 - Set Google Cloud budget alerts for the Maps project.
 - Test Google login, preferences restore, review save, share links, CSV export, and JSON export before sharing the app publicly.

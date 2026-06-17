@@ -36,7 +36,7 @@ Create a visually polished, interactive frontend that proves the concept without
 Included:
 
 - NYC + Jersey City focused map-like interface.
-- Optional live Google Maps JavaScript API + Places Library integration through `VITE_GOOGLE_MAPS_API_KEY`.
+- Optional live Google Maps JavaScript API + Places Library integration through `GOOGLE_MAPS_API_KEY`.
 - Layer switcher: Eat, Do, Reddit, Memory, Vibe.
 - Command palette search.
 - Neighborhood selector.

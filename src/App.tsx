@@ -59,7 +59,7 @@ import {
   type UserLocation,
 } from "./lib/lifelayers";
 
-const googleApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
+const googleApiKey = import.meta.env.GOOGLE_MAPS_API_KEY as string | undefined;
 
 function App() {
   const [activeLayer, setActiveLayer] = useState<LayerId | "all">("all");
@@ -96,7 +96,7 @@ function App() {
     source: googleApiKey ? "google" : "curated",
     message: googleApiKey
       ? "Google Maps enabled. Loading live Places results..."
-      : "Add VITE_GOOGLE_MAPS_API_KEY to enable live Google Maps and Places.",
+      : "Add GOOGLE_MAPS_API_KEY to enable live Google Maps and Places.",
     count: 0,
     loading: Boolean(googleApiKey),
   });
@@ -433,7 +433,7 @@ function App() {
     }
 
     if (!googleApiKey) {
-      setActionStatus("Add VITE_GOOGLE_MAPS_API_KEY to search and save cities.");
+      setActionStatus("Add GOOGLE_MAPS_API_KEY to search and save cities.");
       return;
     }
 
