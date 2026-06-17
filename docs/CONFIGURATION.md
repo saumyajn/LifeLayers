@@ -95,9 +95,23 @@ The committed `firestore.rules` file is the source of truth. It uses this securi
 - Review edits and deletes are limited to the original author.
 - All other collections are denied by default.
 
-Deploy rules with the Firebase CLI after selecting the correct Firebase project:
+The Firebase CLI reads `firebase.json` to locate `firestore.rules`. Deploy rules after
+selecting the correct Firebase project:
 
 ```powershell
+firebase deploy --only firestore:rules
+```
+
+If the repo is not linked to a Firebase project yet, either pass the project id directly:
+
+```powershell
+firebase deploy --only firestore:rules --project your_firebase_project_id
+```
+
+Or create a local project alias:
+
+```powershell
+firebase use --add
 firebase deploy --only firestore:rules
 ```
 
