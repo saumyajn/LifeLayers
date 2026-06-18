@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CityId, LayerId, Place, layers, neighborhoods, places } from "./data/places";
+import type { CityId, Place } from "./data/places";
 import { CommandPalette } from "./components/CommandPalette";
 import {
   ActiveFilterBar,
-  type ActiveFilterChip,
   LiveGoogleSearch,
   LiveSourceBar,
   MapToolbar,
@@ -15,85 +14,35 @@ import { GoogleLiveMap, RealMap } from "./components/MapViews";
 import { PlaceDetail } from "./components/PlaceDetail";
 import { Sidebar } from "./components/Sidebar";
 import { TopBar } from "./components/TopBar";
+import { isFirebaseConfigured, type UserPreferences } from "./firebase";
+import { useLifeLayersAuth } from "./hooks/useLifeLayersAuth";
+import { useLifeLayersFilters } from "./hooks/useLifeLayersFilters";
+import { useLocationPlanner } from "./hooks/useLocationPlanner";
+import { usePlaceCollections } from "./hooks/usePlaceCollections";
+import { usePlaceExports } from "./hooks/usePlaceExports";
+import { usePlaceSharing } from "./hooks/usePlaceSharing";
+import { useReviews } from "./hooks/useReviews";
+import { useSavedPlaces } from "./hooks/useSavedPlaces";
+import { useSelectedPlace } from "./hooks/useSelectedPlace";
+import { useUserPreferences } from "./hooks/useUserPreferences";
+import { planPresets, type LiveStatus } from "./lib/lifelayers";
 import {
-  addUserReview,
-  isFirebaseConfigured,
-  listenForUser,
-  loadUserPreferences,
-  saveUserPreferences,
-  signInWithGoogle,
-  signOutUser,
-  type LifeLayersUser,
-  type UserPreferences,
-} from "./firebase";
-import {
-  cityMatches,
-  csvEscape,
-  downloadFile,
-  filterMatches,
-  getErrorMessage,
-  getGoogleMapsUrl,
-  isLayerPreference,
-  isPricePreference,
-  isPulsePreference,
-  isSortPreference,
-  isUserLocation,
-  layerSubcategoryOptions,
-  layerMatches,
-  normalizeLocationId,
-  planPresets,
-  priceOptions,
-  pulseOptions,
-  radiusOptions,
-  sortPlaces,
-  sortOptions,
-  subcategoryMatches,
-  textMatches,
-  toExportPlace,
-  type LiveStatus,
-  type PriceFilter,
-  type PulseFilter,
-  type ReviewStatus,
-  type SortMode,
-  type SubcategoryFilter,
-  type UserLocation,
-} from "./lib/lifelayers";
-import { geocodeAddress } from "./services/google/googleMapsLoader";
+  buildUserPreferences,
+  getExportPlaces,
+  getPlanTitle,
+  getSavedPlaces,
+} from "./utils/placeState";
 
 const googleApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
 const googleMapId = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID as string | undefined;
 
 function App() {
-  const [activeLayer, setActiveLayer] = useState<LayerId | "all">("all");
   const [activeCity, setActiveCity] = useState<CityId>("nearby");
-  const [selectedId, setSelectedId] = useState(places[0].id);
-  const [query, setQuery] = useState("");
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const [savedIds, setSavedIds] = useState<string[]>([]);
   const [compareMode, setCompareMode] = useState(false);
-  const [priceFilter, setPriceFilter] = useState<PriceFilter>("all");
-  const [vibeFilter, setVibeFilter] = useState("all");
-  const [subcategoryFilter, setSubcategoryFilter] = useState<SubcategoryFilter>("all");
-  const [pulseFilter, setPulseFilter] = useState<PulseFilter>("all");
-  const [sortMode, setSortMode] = useState<SortMode>("signal");
-  const [savedOnly, setSavedOnly] = useState(false);
-  const [liveSearchDraft, setLiveSearchDraft] = useState("");
-  const [liveSearchQuery, setLiveSearchQuery] = useState("");
   const [livePlaces, setLivePlaces] = useState<Place[]>([]);
   const [actionStatus, setActionStatus] = useState("");
-  const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
-  const [savedLocations, setSavedLocations] = useState<UserLocation[]>([]);
-  const [locationDraft, setLocationDraft] = useState("");
-  const [findingLocation, setFindingLocation] = useState(false);
-  const [searchRadiusMiles, setSearchRadiusMiles] = useState<number>(25);
-  const [locationStatus, setLocationStatus] = useState("Finding your location...");
   const [googleMapAvailable, setGoogleMapAvailable] = useState(Boolean(googleApiKey));
-  const [currentUser, setCurrentUser] = useState<LifeLayersUser | null>(null);
-  const [authBusy, setAuthBusy] = useState(false);
-  const [preferencesReady, setPreferencesReady] = useState(!isFirebaseConfigured);
-  const [reviewRating, setReviewRating] = useState(5);
-  const [reviewText, setReviewText] = useState("");
-  const [reviewStatus, setReviewStatus] = useState<ReviewStatus | null>(null);
   const [liveStatus, setLiveStatus] = useState<LiveStatus>({
     source: googleApiKey ? "google" : "curated",
     message: googleApiKey
@@ -102,458 +51,165 @@ function App() {
     count: 0,
     loading: Boolean(googleApiKey),
   });
-  const restoredUserRef = useRef<string | null>(null);
   const resultListRef = useRef<HTMLElement | null>(null);
   const hasMountedRef = useRef(false);
-  const geolocationAttemptedRef = useRef(false);
 
-  const allPlaces = useMemo(() => {
-    if (!googleApiKey || livePlaces.length === 0) return places;
-
-    return [...places, ...livePlaces];
-  }, [livePlaces]);
-
-  const subcategoryOptions =
-    activeLayer === "all" ? [] : (layerSubcategoryOptions[activeLayer] ?? []);
-  const activeSubcategory = subcategoryOptions.find((option) => option.id === subcategoryFilter);
-  const effectiveLiveSearchQuery = liveSearchQuery || activeSubcategory?.liveQuery || "";
-  const placesAreRefreshing = Boolean(googleApiKey && googleMapAvailable && liveStatus.loading);
-  const placesLoadingLabel = effectiveLiveSearchQuery
-    ? `Loading "${effectiveLiveSearchQuery}"`
-    : "Refreshing live places";
-
-  const visiblePlaces = useMemo(
-    () =>
-      allPlaces
-        .filter(
-          (place) =>
-            cityMatches(place, activeCity) &&
-            layerMatches(place, activeLayer) &&
-            filterMatches(place, priceFilter, vibeFilter, pulseFilter) &&
-            subcategoryMatches(place, activeSubcategory) &&
-            (!savedOnly || savedIds.includes(place.id)) &&
-            (!query || textMatches(place, query)),
-        )
-        .sort((a, b) => sortPlaces(a, b, sortMode)),
-    [
-      allPlaces,
-      activeCity,
-      activeLayer,
-      activeSubcategory,
-      priceFilter,
-      vibeFilter,
-      pulseFilter,
-      savedOnly,
-      savedIds,
-      query,
-      sortMode,
-    ],
-  );
-
-  const layerCounts = useMemo(() => {
-    const counts: Record<LayerId, number> = {
-      eat: 0,
-      do: 0,
-      reddit: 0,
-      memory: 0,
-      vibe: 0,
-    };
-
-    allPlaces.forEach((place) => {
-      if (
-        cityMatches(place, activeCity) &&
-        filterMatches(place, priceFilter, vibeFilter, pulseFilter)
-      ) {
-        counts[place.layer] += 1;
-      }
-    });
-
-    return counts;
-  }, [allPlaces, activeCity, priceFilter, vibeFilter, pulseFilter]);
-
-  const availableVibes = useMemo(() => {
-    const vibeSet = new Set<string>();
-    allPlaces
-      .filter((place) => cityMatches(place, activeCity))
-      .forEach((place) => {
-        place.vibe.forEach((vibe) => vibeSet.add(vibe));
-        place.bestFor.forEach((tag) => vibeSet.add(tag));
-      });
-
-    return ["all", ...Array.from(vibeSet).sort()].slice(0, 28);
-  }, [allPlaces, activeCity]);
-
-  const selectedPlace =
-    allPlaces.find((place) => place.id === selectedId) ?? visiblePlaces[0] ?? allPlaces[0];
-
-  const activeNeighborhoods = neighborhoods.filter((neighborhood) => {
-    if (activeCity === "all") return true;
-    if (activeCity === "nearby") return false;
-    return activeCity === "nyc" ? neighborhood.city === "NYC" : neighborhood.city === "Jersey City";
+  const location = useLocationPlanner({
+    googleApiKey,
+    setActionStatus,
+    setActiveCity,
   });
 
-  const savedPlaces = savedIds
-    .map((id) => allPlaces.find((place) => place.id === id))
-    .filter((place): place is Place => Boolean(place));
+  const filters = useLifeLayersFilters({
+    activeCity,
+    setActiveCity,
+    userLocation: location.userLocation,
+    searchRadiusMiles: location.searchRadiusMiles,
+  });
 
-  const exportPlaces = savedPlaces.length ? savedPlaces : visiblePlaces;
+  const saved = useSavedPlaces();
+
+  const {
+    allPlaces,
+    visiblePlaces,
+    layerCounts,
+    availableVibes,
+    activeNeighborhoods,
+    topNeighborhoods,
+  } = usePlaceCollections({
+    livePlaces,
+    hasGoogleApiKey: Boolean(googleApiKey),
+    filters: filters.filters,
+    savedIds: saved.savedIds,
+    activeSubcategory: filters.activeSubcategory,
+    compareMode,
+  });
+
+  const savedPlaces = useMemo(
+    () => getSavedPlaces(allPlaces, saved.savedIds),
+    [allPlaces, saved.savedIds],
+  );
+  const exportPlaces = useMemo(
+    () => getExportPlaces(savedPlaces, visiblePlaces),
+    [savedPlaces, visiblePlaces],
+  );
+
+  const selected = useSelectedPlace(allPlaces, visiblePlaces);
+  const auth = useLifeLayersAuth({ setActionStatus });
 
   const preferences = useMemo<UserPreferences>(
+    () =>
+      buildUserPreferences({
+        filters: filters.filters,
+        savedIds: saved.savedIds,
+        userLocation: location.userLocation,
+        savedLocations: location.savedLocations,
+        searchRadiusMiles: location.searchRadiusMiles,
+      }),
+    [
+      filters.filters,
+      location.savedLocations,
+      location.searchRadiusMiles,
+      location.userLocation,
+      saved.savedIds,
+    ],
+  );
+
+  const preferenceSetters = useMemo(
     () => ({
-      activeLayer,
-      activeCity,
-      priceFilter,
-      vibeFilter,
-      subcategoryFilter,
-      pulseFilter,
-      sortMode,
-      savedOnly,
-      savedIds,
-      liveSearchQuery,
-      userLocation,
-      savedLocations,
-      searchRadiusMiles,
+      setActiveLayer: filters.setActiveLayer,
+      setActiveCity,
+      setPriceFilter: filters.setPriceFilter,
+      setVibeFilter: filters.setVibeFilter,
+      setSubcategoryFilter: filters.setSubcategoryFilter,
+      setPulseFilter: filters.setPulseFilter,
+      setSortMode: filters.setSortMode,
+      setSavedOnly: filters.setSavedOnly,
+      setSavedIds: saved.setSavedIds,
+      setLiveSearchQuery: filters.setLiveSearchQuery,
+      setLiveSearchDraft: filters.setLiveSearchDraft,
+      setSearchRadiusMiles: location.setSearchRadiusMiles,
+      setSavedLocations: location.setSavedLocations,
+      setUserLocation: location.setUserLocation,
+      setLocationStatus: location.setLocationStatus,
     }),
     [
-      activeLayer,
-      activeCity,
-      priceFilter,
-      vibeFilter,
-      subcategoryFilter,
-      pulseFilter,
-      sortMode,
-      savedOnly,
-      savedIds,
-      liveSearchQuery,
-      userLocation,
-      savedLocations,
-      searchRadiusMiles,
+      filters.setActiveLayer,
+      filters.setLiveSearchDraft,
+      filters.setLiveSearchQuery,
+      filters.setPriceFilter,
+      filters.setPulseFilter,
+      filters.setSavedOnly,
+      filters.setSortMode,
+      filters.setSubcategoryFilter,
+      filters.setVibeFilter,
+      location.setLocationStatus,
+      location.setSavedLocations,
+      location.setSearchRadiusMiles,
+      location.setUserLocation,
+      saved.setSavedIds,
     ],
   );
 
-  const topNeighborhoods = [...activeNeighborhoods]
-    .sort((a, b) => b.score - a.score)
-    .slice(0, compareMode ? 4 : 3);
+  const { preferencesReady } = useUserPreferences({
+    authReady: auth.authReady,
+    currentUser: auth.currentUser,
+    preferences,
+    setters: preferenceSetters,
+    requestBrowserLocation: location.requestBrowserLocation,
+    setActionStatus,
+  });
 
-  const activePresetLabel = useMemo(() => {
-    const matchingPreset = planPresets.find(
-      (preset) =>
-        preset.query === query &&
-        preset.layer === activeLayer &&
-        preset.price === priceFilter &&
-        pulseFilter === "all" &&
-        vibeFilter === "all" &&
-        subcategoryFilter === "all" &&
-        !savedOnly &&
-        !liveSearchQuery,
-    );
+  const reviews = useReviews({
+    currentUser: auth.currentUser,
+    selectedPlace: selected.selectedPlace,
+    setActionStatus,
+  });
 
-    return matchingPreset?.label;
-  }, [
-    activeLayer,
-    liveSearchQuery,
-    priceFilter,
-    pulseFilter,
-    query,
-    savedOnly,
-    subcategoryFilter,
-    vibeFilter,
-  ]);
-
-  function clearFilter(filterId: string) {
-    switch (filterId) {
-      case "city":
-        setActiveCity(userLocation ? "nearby" : "all");
-        break;
-      case "layer":
-        setActiveLayer("all");
-        setSubcategoryFilter("all");
-        break;
-      case "subcategory":
-        setSubcategoryFilter("all");
-        break;
-      case "price":
-        setPriceFilter("all");
-        break;
-      case "vibe":
-        setVibeFilter("all");
-        break;
-      case "pulse":
-        setPulseFilter("all");
-        break;
-      case "query":
-        setQuery("");
-        break;
-      case "live":
-        setLiveSearchQuery("");
-        setLiveSearchDraft("");
-        break;
-      case "saved":
-        setSavedOnly(false);
-        break;
-      case "sort":
-        setSortMode("signal");
-        break;
-      default:
-        break;
-    }
-  }
-
-  const activeFilterChips = useMemo(() => {
-    const chips: ActiveFilterChip[] = [];
-    const cityLabel =
-      activeCity === "nearby" && userLocation
-        ? userLocation.label
-        : activeCity === "nearby"
-          ? "Near me"
-          : "Current area";
-    const layerLabel = layers.find((layer) => layer.id === activeLayer)?.label;
-    const priceLabel = priceOptions.find((price) => price.id === priceFilter)?.label;
-    const pulseLabel = pulseOptions.find((pulse) => pulse.id === pulseFilter)?.label;
-    const sortLabel = sortOptions.find((sort) => sort.id === sortMode)?.label;
-
-    if (activeCity !== "all" && cityLabel) {
-      chips.push({
-        id: "city",
-        label: `Location: ${cityLabel}`,
-        onClear: () => clearFilter("city"),
-      });
-      chips.push({
-        id: "radius",
-        label: `Distance: ${searchRadiusMiles} mi`,
-      });
-    }
-    if (activeLayer !== "all" && layerLabel)
-      chips.push({
-        id: "layer",
-        label: `Layer: ${layerLabel}`,
-        onClear: () => clearFilter("layer"),
-      });
-    if (priceFilter !== "all" && priceLabel)
-      chips.push({
-        id: "price",
-        label: `Price: ${priceLabel}`,
-        onClear: () => clearFilter("price"),
-      });
-    if (activeSubcategory)
-      chips.push({
-        id: "subcategory",
-        label: `Option: ${activeSubcategory.label}`,
-        onClear: () => clearFilter("subcategory"),
-      });
-    if (vibeFilter !== "all")
-      chips.push({ id: "vibe", label: `Vibe: ${vibeFilter}`, onClear: () => clearFilter("vibe") });
-    if (pulseFilter !== "all" && pulseLabel)
-      chips.push({
-        id: "pulse",
-        label: `Pulse: ${pulseLabel}`,
-        onClear: () => clearFilter("pulse"),
-      });
-    if (query)
-      chips.push({ id: "query", label: `Search: ${query}`, onClear: () => clearFilter("query") });
-    if (liveSearchQuery)
-      chips.push({
-        id: "live",
-        label: `Live: ${liveSearchQuery}`,
-        onClear: () => clearFilter("live"),
-      });
-    if (savedOnly)
-      chips.push({ id: "saved", label: "Saved only", onClear: () => clearFilter("saved") });
-    if (sortMode !== "signal" && sortLabel)
-      chips.push({ id: "sort", label: `Sort: ${sortLabel}`, onClear: () => clearFilter("sort") });
-
-    return chips;
-  }, [
-    activeCity,
-    activeLayer,
-    activeSubcategory,
-    liveSearchQuery,
-    priceFilter,
-    pulseFilter,
-    query,
-    savedOnly,
-    searchRadiusMiles,
-    sortMode,
-    userLocation,
-    vibeFilter,
-  ]);
-
-  const filterSignature = useMemo(
+  const planTitle = useMemo(
     () =>
-      [
+      getPlanTitle({
         activeCity,
-        activeLayer,
-        priceFilter,
-        subcategoryFilter,
-        vibeFilter,
-        pulseFilter,
-        sortMode,
-        savedOnly ? "saved" : "all",
-        query,
-        liveSearchQuery,
-        userLocation?.lat,
-        userLocation?.lng,
-        searchRadiusMiles,
-      ].join("|"),
-    [
-      activeCity,
-      activeLayer,
-      liveSearchQuery,
-      priceFilter,
-      pulseFilter,
-      query,
-      savedOnly,
-      searchRadiusMiles,
-      sortMode,
-      subcategoryFilter,
-      userLocation?.lat,
-      userLocation?.lng,
-      vibeFilter,
-    ],
+        userLocation: location.userLocation,
+        activeLayer: filters.activeLayer,
+      }),
+    [activeCity, filters.activeLayer, location.userLocation],
   );
 
-  const requestBrowserLocation = useCallback(
-    (manual = false, precise = true) => {
-      if (!("geolocation" in navigator)) {
-        setLocationStatus("Location is not supported in this browser.");
-        if (manual) setActionStatus("This browser does not support location sharing.");
-        return;
-      }
+  const exports = usePlaceExports({
+    filters: filters.filters,
+    title: planTitle,
+    source: liveStatus.source,
+    exportPlaces,
+    setActionStatus,
+  });
 
-      if (!manual && geolocationAttemptedRef.current) return;
+  const sharing = usePlaceSharing({
+    selectedPlace: selected.selectedPlace,
+    liveSearchQuery: filters.liveSearchQuery,
+    userLocation: location.userLocation,
+    setActiveCity,
+    setActionStatus,
+  });
 
-      geolocationAttemptedRef.current = true;
-      setLocationStatus("Requesting your location...");
+  const placesAreRefreshing = Boolean(googleApiKey && googleMapAvailable && liveStatus.loading);
+  const placesLoadingLabel = filters.effectiveLiveSearchQuery
+    ? `Loading "${filters.effectiveLiveSearchQuery}"`
+    : "Refreshing live places";
 
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const nextLocation: UserLocation = {
-            id: "current-location",
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-            label: "Current location",
-            source: "browser",
-            radiusMiles: searchRadiusMiles,
-            updatedAt: new Date().toISOString(),
-          };
-
-          setUserLocation(nextLocation);
-          setActiveCity("nearby");
-          setLocationStatus("Using your current location.");
-          setActionStatus("LifeLayers is searching near your location.");
-        },
-        () => {
-          setLocationStatus("Location blocked. Showing fallback places.");
-          setActiveCity("all");
-          if (manual) setActionStatus("Location permission was blocked.");
-        },
-        {
-          enableHighAccuracy: precise,
-          maximumAge: precise ? 0 : 10 * 60 * 1000,
-          timeout: precise ? 12000 : 8000,
-        },
-      );
+  const runQuickSearch = useCallback(
+    (search: string) => {
+      filters.setQuery(search);
+      setPaletteOpen(false);
     },
-    [searchRadiusMiles],
+    [filters],
   );
 
-  const findCityLocation = useCallback(async () => {
-    const search = locationDraft.trim();
-    if (!search) {
-      setActionStatus("Enter a city to preview.");
-      return;
-    }
-
-    if (!googleApiKey) {
-      setActionStatus("Add VITE_GOOGLE_MAPS_API_KEY to search and save cities.");
-      return;
-    }
-
-    setFindingLocation(true);
-    setLocationStatus(`Finding ${search}...`);
-
-    try {
-      const { lat, lng, label } = await geocodeAddress(googleApiKey, search);
-      const nextLocation: UserLocation = {
-        id: normalizeLocationId({ label, lat, lng }),
-        lat,
-        lng,
-        label,
-        source: "search",
-        radiusMiles: searchRadiusMiles,
-        updatedAt: new Date().toISOString(),
-      };
-
-      setUserLocation(nextLocation);
-      setActiveCity("nearby");
-      setLocationStatus(`Previewing ${label}.`);
-      setActionStatus(`Previewing places in ${label}. Save it to keep this city.`);
-    } catch (error) {
-      setLocationStatus("City search failed.");
-      setActionStatus(getErrorMessage(error));
-    } finally {
-      setFindingLocation(false);
-    }
-  }, [locationDraft, searchRadiusMiles]);
-
-  const saveActiveLocation = () => {
-    if (!userLocation) {
-      setActionStatus("Find a city or use your location before saving.");
-      return;
-    }
-
-    const savedLocation: UserLocation = {
-      ...userLocation,
-      id: userLocation.id ?? normalizeLocationId(userLocation),
-      source: "saved",
-      radiusMiles: searchRadiusMiles,
-      updatedAt: new Date().toISOString(),
-    };
-
-    setSavedLocations((current) => {
-      const withoutDuplicate = current.filter((location) => location.id !== savedLocation.id);
-      return [...withoutDuplicate, savedLocation].sort((a, b) => a.label.localeCompare(b.label));
-    });
-    setUserLocation(savedLocation);
-    setActiveCity("nearby");
-    setLocationStatus(`Saved ${savedLocation.label}.`);
-    setActionStatus(`${savedLocation.label} saved for future planning.`);
-  };
-
-  const selectSavedLocation = (locationId: string) => {
-    const nextLocation = savedLocations.find((location) => location.id === locationId);
-    if (!nextLocation) return;
-
-    setUserLocation(nextLocation);
-    setSearchRadiusMiles(nextLocation.radiusMiles ?? searchRadiusMiles);
-    setActiveCity("nearby");
-    setLocationDraft("");
-    setLocationStatus(`Using saved city ${nextLocation.label}.`);
-    setActionStatus(`Showing places in ${nextLocation.label}.`);
-  };
-
-  const handleMapViewportChange = useCallback(
-    (center: { lat: number; lng: number }, radiusMiles: number, zoom: number) => {
-      const nextRadius = radiusOptions.reduce((closest, option) =>
-        Math.abs(option - radiusMiles) < Math.abs(closest - radiusMiles) ? option : closest,
-      );
-      const nextLocation: UserLocation = {
-        id: `map-${center.lat.toFixed(4)}-${center.lng.toFixed(4)}-${zoom}`,
-        lat: center.lat,
-        lng: center.lng,
-        label: "Map area",
-        source: "map",
-        radiusMiles: nextRadius,
-        updatedAt: new Date().toISOString(),
-      };
-
-      setUserLocation(nextLocation);
-      setSearchRadiusMiles(nextRadius);
-      setActiveCity("nearby");
-      setLocationStatus(`Showing places in this map area within ${nextRadius} miles.`);
-    },
-    [],
-  );
+  const handleGoogleMapUnavailable = useCallback((message: string) => {
+    setGoogleMapAvailable(false);
+    setLivePlaces([]);
+    setActionStatus(message);
+  }, []);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -571,174 +227,12 @@ function App() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  useEffect(
-    () =>
-      listenForUser((user) => {
-        setCurrentUser(user);
-
-        if (!user) {
-          restoredUserRef.current = null;
-          setPreferencesReady(!isFirebaseConfigured);
-          requestBrowserLocation();
-          return;
-        }
-
-        if (restoredUserRef.current === user.uid) {
-          setPreferencesReady(true);
-          return;
-        }
-
-        setPreferencesReady(false);
-
-        loadUserPreferences(user.uid)
-          .then((storedPreferences) => {
-            if (!storedPreferences) {
-              requestBrowserLocation();
-              return;
-            }
-
-            if (isLayerPreference(storedPreferences.activeLayer)) {
-              setActiveLayer(storedPreferences.activeLayer);
-            }
-            if (storedPreferences.activeCity === "nearby") {
-              setActiveCity("nearby");
-            }
-            if (isPricePreference(storedPreferences.priceFilter)) {
-              setPriceFilter(storedPreferences.priceFilter);
-            }
-            if (typeof storedPreferences.vibeFilter === "string") {
-              setVibeFilter(storedPreferences.vibeFilter);
-            }
-            if (typeof storedPreferences.subcategoryFilter === "string") {
-              setSubcategoryFilter(storedPreferences.subcategoryFilter);
-            }
-            if (isPulsePreference(storedPreferences.pulseFilter)) {
-              setPulseFilter(storedPreferences.pulseFilter);
-            }
-            if (isSortPreference(storedPreferences.sortMode)) {
-              setSortMode(storedPreferences.sortMode);
-            }
-            if (typeof storedPreferences.savedOnly === "boolean") {
-              setSavedOnly(storedPreferences.savedOnly);
-            }
-            if (Array.isArray(storedPreferences.savedIds)) {
-              setSavedIds(storedPreferences.savedIds.filter((id) => typeof id === "string"));
-            }
-            if (typeof storedPreferences.liveSearchQuery === "string") {
-              setLiveSearchQuery(storedPreferences.liveSearchQuery);
-              setLiveSearchDraft(storedPreferences.liveSearchQuery);
-            }
-            if (
-              typeof storedPreferences.searchRadiusMiles === "number" &&
-              radiusOptions.some((option) => option === storedPreferences.searchRadiusMiles)
-            ) {
-              setSearchRadiusMiles(storedPreferences.searchRadiusMiles);
-            }
-            const restoredSavedLocations = Array.isArray(storedPreferences.savedLocations)
-              ? storedPreferences.savedLocations.filter(isUserLocation).map((location) => ({
-                  ...location,
-                  id: location.id ?? normalizeLocationId(location),
-                  source: "saved" as const,
-                  radiusMiles: location.radiusMiles ?? storedPreferences.searchRadiusMiles ?? 25,
-                }))
-              : [];
-
-            if (restoredSavedLocations.length) {
-              setSavedLocations(restoredSavedLocations);
-            }
-
-            if (isUserLocation(storedPreferences.userLocation)) {
-              const activeLocation: UserLocation = {
-                ...storedPreferences.userLocation,
-                id:
-                  storedPreferences.userLocation.id ??
-                  normalizeLocationId(storedPreferences.userLocation),
-                source:
-                  storedPreferences.userLocation.source === "browser"
-                    ? "browser"
-                    : restoredSavedLocations.some(
-                          (location) =>
-                            location.id ===
-                            (storedPreferences.userLocation?.id ??
-                              normalizeLocationId(storedPreferences.userLocation as UserLocation)),
-                        )
-                      ? "saved"
-                      : storedPreferences.userLocation.source,
-              };
-
-              setUserLocation({
-                ...activeLocation,
-                label: activeLocation.label || "Saved location",
-              });
-              setSearchRadiusMiles(
-                activeLocation.radiusMiles ?? storedPreferences.searchRadiusMiles ?? 25,
-              );
-              setActiveCity("nearby");
-              setLocationStatus(
-                activeLocation.source === "saved"
-                  ? "Using your saved city."
-                  : "Using your saved location.",
-              );
-            } else if (restoredSavedLocations[0]) {
-              setUserLocation(restoredSavedLocations[0]);
-              setSearchRadiusMiles(
-                restoredSavedLocations[0].radiusMiles ?? storedPreferences.searchRadiusMiles ?? 25,
-              );
-              setActiveCity("nearby");
-              setLocationStatus("Using your saved city.");
-            } else {
-              requestBrowserLocation();
-            }
-
-            setActionStatus("Your saved LifeLayers setup is loaded.");
-          })
-          .catch((error) => setActionStatus(getErrorMessage(error)))
-          .finally(() => {
-            restoredUserRef.current = user.uid;
-            setPreferencesReady(true);
-          });
-      }),
-    [requestBrowserLocation],
-  );
-
-  useEffect(() => {
-    if (!currentUser || !preferencesReady || !isFirebaseConfigured) return;
-
-    const timeoutId = window.setTimeout(() => {
-      saveUserPreferences(currentUser, preferences).catch((error) =>
-        setActionStatus(getErrorMessage(error)),
-      );
-    }, 700);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [currentUser, preferences, preferencesReady]);
-
-  useEffect(() => {
-    const placeId = new URLSearchParams(window.location.search).get("place");
-    if (!placeId || selectedId === placeId) return;
-    if (allPlaces.some((place) => place.id === placeId)) {
-      setSelectedId(placeId);
-    }
-  }, [allPlaces, selectedId]);
-
-  useEffect(() => {
-    if (visiblePlaces.length && !visiblePlaces.some((place) => place.id === selectedId)) {
-      setSelectedId(visiblePlaces[0].id);
-    }
-  }, [selectedId, visiblePlaces]);
-
   useEffect(() => {
     if (!actionStatus) return;
 
     const timeoutId = window.setTimeout(() => setActionStatus(""), 3200);
     return () => window.clearTimeout(timeoutId);
   }, [actionStatus]);
-
-  useEffect(() => {
-    if (subcategoryFilter === "all") return;
-    if (subcategoryOptions.some((option) => option.id === subcategoryFilter)) return;
-    setSubcategoryFilter("all");
-  }, [subcategoryFilter, subcategoryOptions]);
 
   useEffect(() => {
     if (!hasMountedRef.current) {
@@ -754,366 +248,98 @@ function App() {
         block: "start",
       });
     });
-  }, [filterSignature, visiblePlaces.length]);
-
-  const toggleSaved = (placeId: string) => {
-    setSavedIds((current) =>
-      current.includes(placeId) ? current.filter((id) => id !== placeId) : [...current, placeId],
-    );
-  };
-
-  const runQuickSearch = (search: string) => {
-    setQuery(search);
-    setPaletteOpen(false);
-  };
-
-  const resetFilters = () => {
-    setActiveCity(userLocation ? "nearby" : "all");
-    setActiveLayer("all");
-    setSubcategoryFilter("all");
-    setPriceFilter("all");
-    setVibeFilter("all");
-    setPulseFilter("all");
-    setSavedOnly(false);
-    setQuery("");
-    setLiveSearchDraft("");
-    setLiveSearchQuery("");
-    setSortMode("signal");
-  };
-
-  const applyPreset = (preset: (typeof planPresets)[number]) => {
-    setQuery(preset.query);
-    setActiveLayer(preset.layer);
-    setSubcategoryFilter("all");
-    setPriceFilter(preset.price);
-    setPulseFilter("all");
-    setVibeFilter("all");
-    setSavedOnly(false);
-    setLiveSearchDraft("");
-    setLiveSearchQuery("");
-  };
-
-  const handleLayerChange = (layer: LayerId | "all") => {
-    setActiveLayer(layer);
-    setSubcategoryFilter("all");
-  };
-
-  const runLiveGoogleSearch = () => {
-    setLiveSearchQuery(liveSearchDraft.trim());
-    setQuery("");
-    setSavedOnly(false);
-  };
-
-  const clearLiveGoogleSearch = () => {
-    setLiveSearchDraft("");
-    setLiveSearchQuery("");
-  };
-
-  const openSavedPlaceInGoogleMaps = (place: Place) => {
-    const openedWindow = window.open(getGoogleMapsUrl(place), "_blank", "noopener,noreferrer");
-    if (openedWindow) {
-      openedWindow.opener = null;
-      setActionStatus(`Opening ${place.name} in Google Maps.`);
-      return;
-    }
-
-    setActionStatus("Allow popups to open saved places in Google Maps.");
-  };
-
-  const keepLocationMode = (place?: Place) => {
-    if (place?.city === "Near you" || userLocation) {
-      setActiveCity("nearby");
-      return;
-    }
-
-    setActiveCity("all");
-  };
-
-  const handleGoogleMapUnavailable = useCallback((message: string) => {
-    setGoogleMapAvailable(false);
-    setLivePlaces([]);
-    setActionStatus(message);
-  }, []);
-
-  const handleGoogleSignIn = async () => {
-    if (!isFirebaseConfigured) {
-      setActionStatus("Add Firebase env values to enable Google login.");
-      return;
-    }
-
-    setAuthBusy(true);
-    try {
-      const result = await signInWithGoogle();
-      if (!result.ok) {
-        setActionStatus(result.message);
-        return;
-      }
-
-      setActionStatus(result.user ? "Signed in with Google." : "Redirecting to Google login...");
-    } catch (error) {
-      setActionStatus(getErrorMessage(error));
-    } finally {
-      setAuthBusy(false);
-    }
-  };
-
-  const handleSignOut = async () => {
-    setAuthBusy(true);
-    try {
-      await signOutUser();
-      setActionStatus("Signed out.");
-    } catch (error) {
-      setActionStatus(getErrorMessage(error));
-    } finally {
-      setAuthBusy(false);
-    }
-  };
-
-  const submitReview = async () => {
-    if (!currentUser) {
-      setReviewStatus({
-        placeId: selectedPlace.id,
-        message: "Sign in with Google to save reviews.",
-      });
-      return;
-    }
-
-    const trimmedReview = reviewText.trim();
-    if (!trimmedReview) {
-      setReviewStatus({ placeId: selectedPlace.id, message: "Add a short review before saving." });
-      return;
-    }
-
-    setReviewStatus({ placeId: selectedPlace.id, message: "Saving review..." });
-
-    try {
-      await addUserReview({
-        user: currentUser,
-        place: selectedPlace,
-        rating: reviewRating,
-        text: trimmedReview,
-      });
-      setReviewText("");
-      setReviewRating(5);
-      setReviewStatus({ placeId: selectedPlace.id, message: "Review saved to LifeLayers." });
-      setActionStatus("Your review was saved to Firestore.");
-    } catch (error) {
-      setReviewStatus({ placeId: selectedPlace.id, message: getErrorMessage(error) });
-    }
-  };
-
-  const getPlanTitle = () => {
-    const cityLabel =
-      activeCity === "nearby" && userLocation ? userLocation.label : "Current location";
-    const layerLabel =
-      activeLayer === "all"
-        ? "all layers"
-        : (layers.find((layer) => layer.id === activeLayer)?.label.toLowerCase() ?? activeLayer);
-
-    return `LifeLayers ${cityLabel} ${layerLabel} plan`;
-  };
-
-  const getPlaceShareUrl = () => {
-    const url = new URL(window.location.href);
-    url.searchParams.set("place", selectedPlace.id);
-    return url.toString();
-  };
-
-  const buildShareText = () => {
-    const score = selectedPlace.rating
-      ? `${selectedPlace.rating.toFixed(1)} Google rating`
-      : `${selectedPlace.signal}/100 LifeLayers signal`;
-
-    return [
-      `LifeLayers: ${selectedPlace.name}`,
-      liveSearchQuery ? `Search: ${liveSearchQuery}` : null,
-      `${selectedPlace.kind} - ${selectedPlace.price} - ${selectedPlace.neighborhood}, ${selectedPlace.city}`,
-      score,
-      selectedPlace.address,
-      selectedPlace.summary,
-      `Local tip: ${selectedPlace.localTip}`,
-      getPlaceShareUrl(),
-    ]
-      .filter(Boolean)
-      .join("\n");
-  };
-
-  const sharePlan = async () => {
-    const title = `LifeLayers: ${selectedPlace.name}`;
-    const text = buildShareText();
-    const url = getPlaceShareUrl();
-
-    try {
-      if (navigator.share) {
-        await navigator.share({ title, text, url });
-        setActionStatus(`${selectedPlace.name} shared.`);
-        return;
-      }
-
-      await navigator.clipboard.writeText(text);
-      setActionStatus(`${selectedPlace.name} copied to clipboard.`);
-    } catch {
-      setActionStatus("Share was cancelled or blocked.");
-    }
-  };
-
-  const exportJson = () => {
-    const payload = {
-      exportedAt: new Date().toISOString(),
-      title: getPlanTitle(),
-      filters: {
-        city: activeCity,
-        layer: activeLayer,
-        price: priceFilter,
-        vibe: vibeFilter,
-        pulse: pulseFilter,
-        subcategory: subcategoryFilter,
-        sort: sortMode,
-        savedOnly,
-        query,
-        liveSearchQuery,
-      },
-      source: liveStatus.source,
-      places: exportPlaces.map(toExportPlace),
-    };
-
-    downloadFile("lifelayers-export.json", JSON.stringify(payload, null, 2), "application/json");
-    setActionStatus(`Exported ${exportPlaces.length} places as JSON.`);
-  };
-
-  const exportCsv = () => {
-    const headers = [
-      "Name",
-      "City",
-      "Neighborhood",
-      "Layer",
-      "Kind",
-      "Price",
-      "Rating",
-      "Reviews",
-      "Signal",
-      "Source",
-      "Address",
-      "Local Tip",
-    ];
-
-    const rows = exportPlaces.map((place) =>
-      [
-        place.name,
-        place.city,
-        place.neighborhood,
-        place.layer,
-        place.kind,
-        place.price,
-        place.rating,
-        place.userRatingsTotal,
-        place.signal,
-        place.source,
-        place.address,
-        place.localTip,
-      ]
-        .map(csvEscape)
-        .join(","),
-    );
-
-    downloadFile(
-      "lifelayers-export.csv",
-      [headers.map(csvEscape).join(","), ...rows].join("\n"),
-      "text/csv",
-    );
-    setActionStatus(`Exported ${exportPlaces.length} places as CSV.`);
-  };
+  }, [filters.filterSignature, visiblePlaces.length]);
 
   return (
     <main className="app-shell">
       <TopBar
         activeCity={activeCity}
-        userLocation={userLocation}
-        savedLocations={savedLocations}
-        locationDraft={locationDraft}
-        locationStatus={locationStatus}
-        findingLocation={findingLocation}
-        searchRadiusMiles={searchRadiusMiles}
-        onLocationDraftChange={setLocationDraft}
-        onRadiusChange={setSearchRadiusMiles}
-        onFindLocation={findCityLocation}
-        onSaveLocation={saveActiveLocation}
-        onSelectSavedLocation={selectSavedLocation}
-        onUseCurrentLocation={() => requestBrowserLocation(true)}
+        userLocation={location.userLocation}
+        savedLocations={location.savedLocations}
+        locationDraft={location.locationDraft}
+        locationStatus={location.locationStatus}
+        findingLocation={location.findingLocation}
+        searchRadiusMiles={location.searchRadiusMiles}
+        onLocationDraftChange={location.setLocationDraft}
+        onRadiusChange={location.setSearchRadiusMiles}
+        onFindLocation={location.findCityLocation}
+        onSaveLocation={location.saveActiveLocation}
+        onSelectSavedLocation={location.selectSavedLocation}
+        onUseCurrentLocation={() => location.requestBrowserLocation(true)}
         onOpenPalette={() => setPaletteOpen(true)}
       />
 
       <section className="workspace">
         <Sidebar
-          activeLayer={activeLayer}
+          activeLayer={filters.activeLayer}
           activeCity={activeCity}
           allPlaces={allPlaces}
-          selectedPlace={selectedPlace}
+          selectedPlace={selected.selectedPlace}
           savedPlaces={savedPlaces}
           layerCounts={layerCounts}
           availableVibes={availableVibes}
-          priceFilter={priceFilter}
-          subcategoryFilter={subcategoryFilter}
-          subcategoryOptions={subcategoryOptions}
-          vibeFilter={vibeFilter}
-          pulseFilter={pulseFilter}
-          sortMode={sortMode}
-          savedOnly={savedOnly}
-          currentUser={currentUser}
-          authBusy={authBusy}
+          priceFilter={filters.priceFilter}
+          subcategoryFilter={filters.subcategoryFilter}
+          subcategoryOptions={filters.subcategoryOptions}
+          vibeFilter={filters.vibeFilter}
+          pulseFilter={filters.pulseFilter}
+          sortMode={filters.sortMode}
+          savedOnly={filters.savedOnly}
+          currentUser={auth.currentUser}
+          authBusy={auth.authBusy}
           firebaseConfigured={isFirebaseConfigured}
           preferencesReady={preferencesReady}
-          onSignIn={handleGoogleSignIn}
-          onSignOut={handleSignOut}
-          onLayerChange={handleLayerChange}
-          onSubcategoryChange={setSubcategoryFilter}
-          onPriceChange={setPriceFilter}
-          onVibeChange={setVibeFilter}
-          onPulseChange={setPulseFilter}
-          onSortChange={setSortMode}
-          onSavedOnlyChange={setSavedOnly}
-          onResetFilters={resetFilters}
-          onPickSavedPlace={openSavedPlaceInGoogleMaps}
+          onSignIn={auth.handleGoogleSignIn}
+          onSignOut={auth.handleSignOut}
+          onLayerChange={filters.handleLayerChange}
+          onSubcategoryChange={filters.setSubcategoryFilter}
+          onPriceChange={filters.setPriceFilter}
+          onVibeChange={filters.setVibeFilter}
+          onPulseChange={filters.setPulseFilter}
+          onSortChange={filters.setSortMode}
+          onSavedOnlyChange={filters.setSavedOnly}
+          onResetFilters={filters.resetFilters}
+          onPickSavedPlace={sharing.openSavedPlaceInGoogleMaps}
         />
 
         <section className="map-stage" aria-label="Interactive LifeLayers map">
           <MapToolbar
             visibleCount={visiblePlaces.length}
             compareMode={compareMode}
-            hasSelectedPlace={Boolean(selectedPlace)}
+            hasSelectedPlace={Boolean(selected.selectedPlace)}
             hasExportPlaces={Boolean(exportPlaces.length)}
             actionStatus={actionStatus}
             onToggleCompare={() => setCompareMode((current) => !current)}
-            onShare={sharePlan}
-            onExportCsv={exportCsv}
-            onExportJson={exportJson}
+            onShare={sharing.sharePlan}
+            onExportCsv={exports.exportCsv}
+            onExportJson={exports.exportJson}
           />
 
           <PresetRow
             presets={planPresets}
-            activePresetLabel={activePresetLabel}
-            onApplyPreset={applyPreset}
+            activePresetLabel={filters.activePresetLabel}
+            onApplyPreset={filters.applyPreset}
           />
 
           <ActiveFilterBar
-            chips={activeFilterChips}
-            activePresetLabel={activePresetLabel}
+            chips={filters.activeFilterChips}
+            activePresetLabel={filters.activePresetLabel}
             resultCount={visiblePlaces.length}
             loading={placesAreRefreshing}
             loadingLabel={placesLoadingLabel}
-            onResetFilters={resetFilters}
+            onResetFilters={filters.resetFilters}
           />
 
           <div className="map-utility-row">
             <LiveSourceBar status={liveStatus} />
 
             <LiveGoogleSearch
-              value={liveSearchDraft}
-              activeQuery={liveSearchQuery}
+              value={filters.liveSearchDraft}
+              activeQuery={filters.liveSearchQuery}
               disabled={!googleApiKey}
-              onChange={setLiveSearchDraft}
-              onSubmit={runLiveGoogleSearch}
-              onClear={clearLiveGoogleSearch}
+              onChange={filters.setLiveSearchDraft}
+              onSubmit={filters.runLiveGoogleSearch}
+              onClear={filters.clearLiveGoogleSearch}
             />
           </div>
 
@@ -1123,14 +349,14 @@ function App() {
                 apiKey={googleApiKey}
                 mapId={googleMapId}
                 activeCity={activeCity}
-                activeLayer={activeLayer}
-                liveSearchQuery={effectiveLiveSearchQuery}
+                activeLayer={filters.activeLayer}
+                liveSearchQuery={filters.effectiveLiveSearchQuery}
                 places={visiblePlaces}
-                selectedPlace={selectedPlace}
-                userLocation={userLocation}
-                searchRadiusMiles={searchRadiusMiles}
-                onViewportChange={handleMapViewportChange}
-                onPickPlace={(place) => setSelectedId(place.id)}
+                selectedPlace={selected.selectedPlace}
+                userLocation={location.userLocation}
+                searchRadiusMiles={location.searchRadiusMiles}
+                onViewportChange={location.handleMapViewportChange}
+                onPickPlace={(place) => selected.setSelectedId(place.id)}
                 onLivePlaces={setLivePlaces}
                 onStatus={setLiveStatus}
                 onUnavailable={handleGoogleMapUnavailable}
@@ -1140,23 +366,23 @@ function App() {
                 activeCity={activeCity}
                 neighborhoods={activeNeighborhoods}
                 places={visiblePlaces}
-                selectedPlace={selectedPlace}
-                userLocation={userLocation}
-                searchRadiusMiles={searchRadiusMiles}
-                onPickNeighborhood={(neighborhood) => setQuery(neighborhood.name)}
-                onPickPlace={(place) => setSelectedId(place.id)}
+                selectedPlace={selected.selectedPlace}
+                userLocation={location.userLocation}
+                searchRadiusMiles={location.searchRadiusMiles}
+                onPickNeighborhood={(neighborhood) => filters.setQuery(neighborhood.name)}
+                onPickPlace={(place) => selected.setSelectedId(place.id)}
               />
             )}
 
             <ResultsBoard
               places={visiblePlaces}
-              selectedId={selectedPlace.id}
-              savedIds={savedIds}
+              selectedId={selected.selectedPlace.id}
+              savedIds={saved.savedIds}
               resultListRef={resultListRef}
               loading={placesAreRefreshing}
               loadingLabel={placesLoadingLabel}
-              onPick={(place) => setSelectedId(place.id)}
-              onSave={(place) => toggleSaved(place.id)}
+              onPick={(place) => selected.setSelectedId(place.id)}
+              onSave={(place) => saved.toggleSaved(place.id)}
             />
           </div>
 
@@ -1169,50 +395,58 @@ function App() {
 
         <aside className="detail-panel" aria-label="Selected place details">
           <PlaceDetail
-            place={selectedPlace}
-            isSaved={savedIds.includes(selectedPlace.id)}
-            onSave={() => toggleSaved(selectedPlace.id)}
-            onCityClick={() => keepLocationMode(selectedPlace)}
-            currentUser={currentUser}
+            place={selected.selectedPlace}
+            isSaved={saved.savedIds.includes(selected.selectedPlace.id)}
+            onSave={() => saved.toggleSaved(selected.selectedPlace.id)}
+            onCityClick={() => sharing.keepLocationMode(selected.selectedPlace)}
+            currentUser={auth.currentUser}
             firebaseConfigured={isFirebaseConfigured}
-            reviewRating={reviewRating}
-            reviewText={reviewText}
-            reviewStatus={reviewStatus?.placeId === selectedPlace.id ? reviewStatus.message : ""}
-            onReviewRatingChange={setReviewRating}
-            onReviewTextChange={setReviewText}
-            onSubmitReview={submitReview}
-            onRequestSignIn={handleGoogleSignIn}
+            reviewRating={reviews.reviewRating}
+            reviewText={reviews.reviewText}
+            reviewStatus={
+              reviews.reviewStatus?.placeId === selected.selectedPlace.id
+                ? reviews.reviewStatus.message
+                : ""
+            }
+            onReviewRatingChange={reviews.setReviewRating}
+            onReviewTextChange={reviews.setReviewText}
+            onSubmitReview={reviews.submitReview}
+            onRequestSignIn={auth.handleGoogleSignIn}
           />
         </aside>
       </section>
 
       <section className="mobile-sheet" aria-label="Selected place">
         <PlaceDetail
-          place={selectedPlace}
-          isSaved={savedIds.includes(selectedPlace.id)}
-          onSave={() => toggleSaved(selectedPlace.id)}
-          onCityClick={() => keepLocationMode(selectedPlace)}
-          currentUser={currentUser}
+          place={selected.selectedPlace}
+          isSaved={saved.savedIds.includes(selected.selectedPlace.id)}
+          onSave={() => saved.toggleSaved(selected.selectedPlace.id)}
+          onCityClick={() => sharing.keepLocationMode(selected.selectedPlace)}
+          currentUser={auth.currentUser}
           firebaseConfigured={isFirebaseConfigured}
-          reviewRating={reviewRating}
-          reviewText={reviewText}
-          reviewStatus={reviewStatus?.placeId === selectedPlace.id ? reviewStatus.message : ""}
-          onReviewRatingChange={setReviewRating}
-          onReviewTextChange={setReviewText}
-          onSubmitReview={submitReview}
-          onRequestSignIn={handleGoogleSignIn}
+          reviewRating={reviews.reviewRating}
+          reviewText={reviews.reviewText}
+          reviewStatus={
+            reviews.reviewStatus?.placeId === selected.selectedPlace.id
+              ? reviews.reviewStatus.message
+              : ""
+          }
+          onReviewRatingChange={reviews.setReviewRating}
+          onReviewTextChange={reviews.setReviewText}
+          onSubmitReview={reviews.submitReview}
+          onRequestSignIn={auth.handleGoogleSignIn}
         />
       </section>
 
       {paletteOpen && (
         <CommandPalette
-          query={query}
+          query={filters.query}
           places={allPlaces}
-          onQueryChange={setQuery}
+          onQueryChange={filters.setQuery}
           onClose={() => setPaletteOpen(false)}
           onPickPlace={(place) => {
-            setSelectedId(place.id);
-            keepLocationMode(place);
+            selected.setSelectedId(place.id);
+            sharing.keepLocationMode(place);
             setPaletteOpen(false);
           }}
           onQuickSearch={runQuickSearch}
