@@ -1,4 +1,4 @@
-import type { LifeLayersUser } from "../firebase";
+import type { LifeLayersUser } from "../features/auth/authTypes";
 
 type AccountPanelProps = {
   user: LifeLayersUser | null;

@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import type { Place } from "../data/places";
-import type { LifeLayersUser } from "../firebase";
+import type { LifeLayersUser } from "../features/auth/authTypes";
 import { layerColor } from "../lib/lifelayers";
 
 type PlaceDetailProps = {
@@ -11,6 +11,7 @@ type PlaceDetailProps = {
   reviewRating: number;
   reviewText: string;
   reviewStatus: string;
+  reviewSubmitting: boolean;
   onSave: () => void;
   onCityClick: () => void;
   onReviewRatingChange: (rating: number) => void;
@@ -29,6 +30,7 @@ export function PlaceDetail({
   reviewRating,
   reviewText,
   reviewStatus,
+  reviewSubmitting,
   onReviewRatingChange,
   onReviewTextChange,
   onSubmitReview,
@@ -158,10 +160,10 @@ export function PlaceDetail({
             </label>
             <button
               className="primary-action"
-              disabled={!firebaseConfigured || !reviewText.trim()}
+              disabled={!firebaseConfigured || reviewSubmitting || !reviewText.trim()}
               onClick={onSubmitReview}
             >
-              Save review
+              {reviewSubmitting ? "Saving..." : "Save review"}
             </button>
             {reviewStatus && <small className="review-status">{reviewStatus}</small>}
           </div>

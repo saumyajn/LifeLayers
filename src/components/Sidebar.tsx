@@ -2,7 +2,7 @@ import type { CSSProperties } from "react";
 import type { CityId, LayerId, Place } from "../data/places";
 import { layers } from "../data/places";
 import { AccountPanel } from "./AccountPanel";
-import type { LifeLayersUser } from "../firebase";
+import type { LifeLayersUser } from "../features/auth/authTypes";
 import {
   cityMatches,
   layerColor,

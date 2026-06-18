@@ -1,6 +1,6 @@
 import type { CityId, LayerId, Neighborhood, Place } from "../data/places";
 import { layers, neighborhoods } from "../data/places";
-import type { UserPreferences } from "../firebase";
+import type { UserPreferences } from "../features/preferences/preferencesTypes";
 import {
   cityMatches,
   csvEscape,

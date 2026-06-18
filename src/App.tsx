@@ -14,7 +14,7 @@ import { GoogleLiveMap, RealMap } from "./components/MapViews";
 import { PlaceDetail } from "./components/PlaceDetail";
 import { Sidebar } from "./components/Sidebar";
 import { TopBar } from "./components/TopBar";
-import { isFirebaseConfigured, type UserPreferences } from "./firebase";
+import type { UserPreferences } from "./features/preferences/preferencesTypes";
 import { useLifeLayersAuth } from "./hooks/useLifeLayersAuth";
 import { useLifeLayersFilters } from "./hooks/useLifeLayersFilters";
 import { useLocationPlanner } from "./hooks/useLocationPlanner";
@@ -26,6 +26,7 @@ import { useSavedPlaces } from "./hooks/useSavedPlaces";
 import { useSelectedPlace } from "./hooks/useSelectedPlace";
 import { useUserPreferences } from "./hooks/useUserPreferences";
 import { planPresets, type LiveStatus } from "./lib/lifelayers";
+import { isFirebaseConfigured } from "./services/firebase/firebaseApp";
 import {
   buildUserPreferences,
   getExportPlaces,
@@ -408,6 +409,7 @@ function App() {
                 ? reviews.reviewStatus.message
                 : ""
             }
+            reviewSubmitting={reviews.reviewSubmitting}
             onReviewRatingChange={reviews.setReviewRating}
             onReviewTextChange={reviews.setReviewText}
             onSubmitReview={reviews.submitReview}
@@ -431,6 +433,7 @@ function App() {
               ? reviews.reviewStatus.message
               : ""
           }
+          reviewSubmitting={reviews.reviewSubmitting}
           onReviewRatingChange={reviews.setReviewRating}
           onReviewTextChange={reviews.setReviewText}
           onSubmitReview={reviews.submitReview}

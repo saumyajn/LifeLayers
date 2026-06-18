@@ -42,7 +42,7 @@ service cloud.firestore {
         && request.resource.data.rating <= 5
         && request.resource.data.text is string
         && request.resource.data.text.size() > 0
-        && request.resource.data.text.size() <= 2000
+        && request.resource.data.text.size() <= 1000
         && request.resource.data.city is string
         && request.resource.data.neighborhood is string
         && request.resource.data.layer is string
@@ -65,7 +65,7 @@ service cloud.firestore {
         && request.resource.data.rating <= 5
         && request.resource.data.text is string
         && request.resource.data.text.size() > 0
-        && request.resource.data.text.size() <= 2000;
+        && request.resource.data.text.size() <= 1000;
     }
 
     match /users/{userId} {

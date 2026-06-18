@@ -1,27 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import type { CityId, LayerId } from "../data/places";
+import type { LifeLayersUser } from "../features/auth/authTypes";
 import {
-  isFirebaseConfigured,
   loadUserPreferences,
   saveUserPreferences,
-  type LifeLayersUser,
-  type UserPreferences,
-} from "../firebase";
+} from "../features/preferences/preferencesService";
+import type { UserPreferences } from "../features/preferences/preferencesTypes";
 import {
-  getErrorMessage,
-  isLayerPreference,
-  isPricePreference,
-  isPulsePreference,
-  isSortPreference,
-  isUserLocation,
-  normalizeLocationId,
-  radiusOptions,
   type PriceFilter,
   type PulseFilter,
   type SortMode,
   type SubcategoryFilter,
   type UserLocation,
 } from "../lib/lifelayers";
+import { isFirebaseConfigured } from "../services/firebase/firebaseApp";
 
 type PreferenceSetters = {
   setActiveLayer: (layer: LayerId | "all") => void;
@@ -77,16 +69,21 @@ export function useUserPreferences({
     setPreferencesReady(false);
 
     loadUserPreferences(currentUser.uid)
-      .then((storedPreferences) => {
-        if (!storedPreferences) {
+      .then((result) => {
+        if (!result.ok) {
+          setActionStatus(result.message);
           requestBrowserLocation();
           return;
         }
 
-        restorePreferences(storedPreferences, setters, requestBrowserLocation);
+        if (!result.preferences) {
+          requestBrowserLocation();
+          return;
+        }
+
+        restorePreferences(result.preferences, setters, requestBrowserLocation);
         setActionStatus("Your saved LifeLayers setup is loaded.");
       })
-      .catch((error) => setActionStatus(getErrorMessage(error)))
       .finally(() => {
         restoredUserRef.current = currentUser.uid;
         setPreferencesReady(true);
@@ -97,9 +94,9 @@ export function useUserPreferences({
     if (!currentUser || !preferencesReady || !isFirebaseConfigured) return;
 
     const timeoutId = window.setTimeout(() => {
-      saveUserPreferences(currentUser, preferences).catch((error) =>
-        setActionStatus(getErrorMessage(error)),
-      );
+      saveUserPreferences(currentUser, preferences).then((result) => {
+        if (!result.ok) setActionStatus(result.message);
+      });
     }, 700);
 
     return () => window.clearTimeout(timeoutId);
@@ -115,78 +112,36 @@ function restorePreferences(
   setters: PreferenceSetters,
   requestBrowserLocation: () => void,
 ) {
-  if (isLayerPreference(storedPreferences.activeLayer)) {
-    setters.setActiveLayer(storedPreferences.activeLayer);
-  }
-  if (storedPreferences.activeCity === "nearby") {
-    setters.setActiveCity("nearby");
-  }
-  if (isPricePreference(storedPreferences.priceFilter)) {
-    setters.setPriceFilter(storedPreferences.priceFilter);
-  }
-  if (typeof storedPreferences.vibeFilter === "string") {
-    setters.setVibeFilter(storedPreferences.vibeFilter);
-  }
-  if (typeof storedPreferences.subcategoryFilter === "string") {
+  if (storedPreferences.activeLayer) setters.setActiveLayer(storedPreferences.activeLayer);
+  if (storedPreferences.activeCity) setters.setActiveCity(storedPreferences.activeCity);
+  if (storedPreferences.priceFilter) setters.setPriceFilter(storedPreferences.priceFilter);
+  if (storedPreferences.vibeFilter) setters.setVibeFilter(storedPreferences.vibeFilter);
+  if (storedPreferences.subcategoryFilter) {
     setters.setSubcategoryFilter(storedPreferences.subcategoryFilter);
   }
-  if (isPulsePreference(storedPreferences.pulseFilter)) {
-    setters.setPulseFilter(storedPreferences.pulseFilter);
-  }
-  if (isSortPreference(storedPreferences.sortMode)) {
-    setters.setSortMode(storedPreferences.sortMode);
-  }
-  if (typeof storedPreferences.savedOnly === "boolean") {
+  if (storedPreferences.pulseFilter) setters.setPulseFilter(storedPreferences.pulseFilter);
+  if (storedPreferences.sortMode) setters.setSortMode(storedPreferences.sortMode);
+  if (typeof storedPreferences.savedOnly === "boolean")
     setters.setSavedOnly(storedPreferences.savedOnly);
-  }
-  if (Array.isArray(storedPreferences.savedIds)) {
-    setters.setSavedIds(storedPreferences.savedIds.filter((id) => typeof id === "string"));
-  }
-  if (typeof storedPreferences.liveSearchQuery === "string") {
+  if (storedPreferences.savedIds) setters.setSavedIds(storedPreferences.savedIds);
+  if (storedPreferences.liveSearchQuery) {
     setters.setLiveSearchQuery(storedPreferences.liveSearchQuery);
     setters.setLiveSearchDraft(storedPreferences.liveSearchQuery);
   }
-  if (
-    typeof storedPreferences.searchRadiusMiles === "number" &&
-    radiusOptions.some((option) => option === storedPreferences.searchRadiusMiles)
-  ) {
+  if (storedPreferences.searchRadiusMiles) {
     setters.setSearchRadiusMiles(storedPreferences.searchRadiusMiles);
   }
 
-  const restoredSavedLocations = Array.isArray(storedPreferences.savedLocations)
-    ? storedPreferences.savedLocations.filter(isUserLocation).map((location) => ({
-        ...location,
-        id: location.id ?? normalizeLocationId(location),
-        source: "saved" as const,
-        radiusMiles: location.radiusMiles ?? storedPreferences.searchRadiusMiles ?? 25,
-      }))
-    : [];
+  const restoredSavedLocations = storedPreferences.savedLocations ?? [];
 
   if (restoredSavedLocations.length) {
     setters.setSavedLocations(restoredSavedLocations);
   }
 
-  if (isUserLocation(storedPreferences.userLocation)) {
-    const activeLocation: UserLocation = {
-      ...storedPreferences.userLocation,
-      id: storedPreferences.userLocation.id ?? normalizeLocationId(storedPreferences.userLocation),
-      source:
-        storedPreferences.userLocation.source === "browser"
-          ? "browser"
-          : restoredSavedLocations.some(
-                (location) =>
-                  location.id ===
-                  (storedPreferences.userLocation?.id ??
-                    normalizeLocationId(storedPreferences.userLocation as UserLocation)),
-              )
-            ? "saved"
-            : storedPreferences.userLocation.source,
-    };
+  if (storedPreferences.userLocation) {
+    const activeLocation = storedPreferences.userLocation;
 
-    setters.setUserLocation({
-      ...activeLocation,
-      label: activeLocation.label || "Saved location",
-    });
+    setters.setUserLocation(activeLocation);
     setters.setSearchRadiusMiles(
       activeLocation.radiusMiles ?? storedPreferences.searchRadiusMiles ?? 25,
     );

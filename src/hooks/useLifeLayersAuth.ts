@@ -1,12 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import {
-  isFirebaseConfigured,
-  listenForUser,
-  signInWithGoogle,
-  signOutUser,
-  type LifeLayersUser,
-} from "../firebase";
+import { listenForUser, signInWithGoogle, signOutUser } from "../features/auth/authService";
+import type { LifeLayersUser } from "../features/auth/authTypes";
 import { getErrorMessage } from "../lib/lifelayers";
+import { isFirebaseConfigured } from "../services/firebase/firebaseApp";
 
 export function useLifeLayersAuth({
   setActionStatus,
@@ -51,8 +47,8 @@ export function useLifeLayersAuth({
   const handleSignOut = useCallback(async () => {
     setAuthBusy(true);
     try {
-      await signOutUser();
-      setActionStatus("Signed out.");
+      const result = await signOutUser();
+      setActionStatus(result.ok ? "Signed out." : result.message);
     } catch (error) {
       setActionStatus(getErrorMessage(error));
     } finally {

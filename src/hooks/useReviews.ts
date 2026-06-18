@@ -1,7 +1,8 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import type { Place } from "../data/places";
-import { addUserReview, type LifeLayersUser } from "../firebase";
-import { getErrorMessage, type ReviewStatus } from "../lib/lifelayers";
+import type { LifeLayersUser } from "../features/auth/authTypes";
+import { addUserReview } from "../features/reviews/reviewsService";
+import type { ReviewStatus } from "../lib/lifelayers";
 
 export function useReviews({
   currentUser,
@@ -15,8 +16,12 @@ export function useReviews({
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewText, setReviewText] = useState("");
   const [reviewStatus, setReviewStatus] = useState<ReviewStatus | null>(null);
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const submittingRef = useRef(false);
 
   const submitReview = useCallback(async () => {
+    if (submittingRef.current) return;
+
     if (!currentUser) {
       setReviewStatus({
         placeId: selectedPlace.id,
@@ -32,20 +37,30 @@ export function useReviews({
     }
 
     setReviewStatus({ placeId: selectedPlace.id, message: "Saving review..." });
+    setReviewSubmitting(true);
+    submittingRef.current = true;
 
     try {
-      await addUserReview({
+      const result = await addUserReview({
         user: currentUser,
         place: selectedPlace,
         rating: reviewRating,
         text: trimmedReview,
       });
-      setReviewText("");
-      setReviewRating(5);
-      setReviewStatus({ placeId: selectedPlace.id, message: "Review saved to LifeLayers." });
-      setActionStatus("Your review was saved to Firestore.");
-    } catch (error) {
-      setReviewStatus({ placeId: selectedPlace.id, message: getErrorMessage(error) });
+
+      if (result.ok) {
+        setReviewText("");
+        setReviewRating(5);
+        setReviewStatus({ placeId: selectedPlace.id, message: "Review saved to LifeLayers." });
+        setActionStatus("Your review was saved to Firestore.");
+      } else {
+        setReviewStatus({ placeId: selectedPlace.id, message: result.message });
+      }
+    } catch {
+      setReviewStatus({ placeId: selectedPlace.id, message: "Could not save your review." });
+    } finally {
+      submittingRef.current = false;
+      setReviewSubmitting(false);
     }
   }, [currentUser, reviewRating, reviewText, selectedPlace, setActionStatus]);
 
@@ -55,6 +70,7 @@ export function useReviews({
     reviewText,
     setReviewText,
     reviewStatus,
+    reviewSubmitting,
     submitReview,
   };
 }
