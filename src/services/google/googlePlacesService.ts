@@ -229,10 +229,7 @@ async function searchWithNewPlacesApi(specs: GoogleSearchSpec[]) {
       const response = await PlaceClass.searchByText?.({
         textQuery: spec.query,
         fields: NEW_PLACE_FIELDS,
-        locationBias: {
-          center: { lat: spec.center.lat, lng: spec.center.lng },
-          radius: spec.radius,
-        },
+        locationBias: { lat: spec.center.lat, lng: spec.center.lng },
         language: "en-US",
         maxResultCount: Math.min(20, spec.limit),
         region: "us",

@@ -20,6 +20,8 @@ Use this for the real map UI and live Google Places search.
    - Local referrers:
      - `http://localhost:*/*`
      - `http://127.0.0.1:*/*`
+     - `http://localhost:5173/*`
+     - `http://127.0.0.1:5173/*`
    - Production referrers:
      - `https://your-domain.com/*`
      - `https://www.your-domain.com/*`

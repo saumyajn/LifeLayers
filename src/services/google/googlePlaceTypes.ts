@@ -98,7 +98,7 @@ export type GooglePlaceClass = {
   searchByText?: (request: {
     textQuery: string;
     fields: string[];
-    locationBias?: { center: GoogleLatLngLiteral; radius: number };
+    locationBias?: GoogleLatLngLiteral;
     language?: string;
     maxResultCount?: number;
     region?: string;

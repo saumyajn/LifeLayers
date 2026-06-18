@@ -48,7 +48,7 @@ export function RealMap({
 
   useEffect(() => {
     const element = mapRef.current;
-    if (!element) return;
+    if (!element || !(element instanceof Element)) return;
 
     const updateSize = () => {
       const rect = element.getBoundingClientRect();
