@@ -1,9 +1,10 @@
-import { initializeApp, getApp, getApps, type FirebaseOptions } from "firebase/app";
+import { FirebaseError, initializeApp, getApp, getApps, type FirebaseOptions } from "firebase/app";
 import {
   GoogleAuthProvider,
   getAuth,
   onAuthStateChanged,
   signInWithPopup,
+  signInWithRedirect,
   signOut,
   type User,
 } from "firebase/auth";
@@ -37,6 +38,17 @@ export type UserPreferences = {
 
 export type LifeLayersUser = Pick<User, "uid" | "displayName" | "email" | "photoURL">;
 
+type AuthResult =
+  | {
+      ok: true;
+      user?: LifeLayersUser;
+    }
+  | {
+      ok: false;
+      message: string;
+      code?: string;
+    };
+
 type ReviewPayload = {
   user: LifeLayersUser;
   place: Place;
@@ -45,12 +57,12 @@ type ReviewPayload = {
 };
 
 const firebaseConfig: FirebaseOptions = {
-  apiKey: import.meta.env.FIREBASE_API_KEY,
-  authDomain: import.meta.env.FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.FIREBASE_APP_ID,
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
 export const isFirebaseConfigured = [
@@ -70,10 +82,31 @@ const db = app ? getFirestore(app) : null;
 
 function requireFirebase() {
   if (!auth || !db) {
-    throw new Error("Firebase is not configured. Add the FIREBASE_* values to .env.local.");
+    throw new Error("Firebase is not configured. Add the VITE_FIREBASE_* values to .env.local.");
   }
 
   return { auth, db };
+}
+
+function getAuthErrorMessage(code: string) {
+  switch (code) {
+    case "auth/unauthorized-domain":
+      return "This domain is not authorized for Google login in Firebase.";
+    case "auth/operation-not-allowed":
+      return "Google login is not enabled in Firebase.";
+    case "auth/popup-blocked":
+      return "The login popup was blocked. Redirecting instead.";
+    case "auth/popup-closed-by-user":
+      return "The login window was closed before completing sign-in.";
+    case "auth/network-request-failed":
+      return "Network error. Please check your connection and try again.";
+    case "auth/invalid-api-key":
+      return "Firebase API key is invalid or missing.";
+    case "auth/configuration-not-found":
+      return "Firebase authentication is not configured correctly.";
+    default:
+      return "Google login failed. Please try again.";
+  }
 }
 
 export function toLifeLayersUser(user: User): LifeLayersUser {
@@ -94,12 +127,44 @@ export function listenForUser(onChange: (user: LifeLayersUser | null) => void) {
   return onAuthStateChanged(auth, (user) => onChange(user ? toLifeLayersUser(user) : null));
 }
 
-export async function signInWithGoogle() {
-  const { auth } = requireFirebase();
+export async function signInWithGoogle(): Promise<AuthResult> {
+  if (!auth) {
+    return {
+      ok: false,
+      message: "Google login is not configured yet.",
+    };
+  }
+
   const provider = new GoogleAuthProvider();
   provider.setCustomParameters({ prompt: "select_account" });
-  const result = await signInWithPopup(auth, provider);
-  return toLifeLayersUser(result.user);
+
+  try {
+    const result = await signInWithPopup(auth, provider);
+    return {
+      ok: true,
+      user: toLifeLayersUser(result.user),
+    };
+  } catch (error) {
+    if (error instanceof FirebaseError) {
+      if (error.code === "auth/popup-blocked") {
+        await signInWithRedirect(auth, provider);
+        return {
+          ok: true,
+        };
+      }
+
+      return {
+        ok: false,
+        message: getAuthErrorMessage(error.code),
+        code: error.code,
+      };
+    }
+
+    return {
+      ok: false,
+      message: "Google login failed. Please try again.",
+    };
+  }
 }
 
 export async function signOutUser() {

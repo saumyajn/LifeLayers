@@ -843,8 +843,13 @@ function App() {
 
     setAuthBusy(true);
     try {
-      await signInWithGoogle();
-      setActionStatus("Signed in with Google.");
+      const result = await signInWithGoogle();
+      if (!result.ok) {
+        setActionStatus(result.message);
+        return;
+      }
+
+      setActionStatus(result.user ? "Signed in with Google." : "Redirecting to Google login...");
     } catch (error) {
       setActionStatus(getErrorMessage(error));
     } finally {

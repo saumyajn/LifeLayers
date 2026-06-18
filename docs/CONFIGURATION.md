@@ -65,6 +65,10 @@ VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 VITE_FIREBASE_APP_ID=your_firebase_app_id
 ```
 
+For production hosting, add these same `VITE_FIREBASE_*` variables in the
+hosting provider's environment-variable settings, then redeploy. Vite only
+exposes browser-side environment variables that start with `VITE_`.
+
 Official reference:
 
 - Firebase web setup: https://firebase.google.com/docs/web/setup
@@ -81,6 +85,7 @@ Official reference:
    - `localhost`
    - `127.0.0.1`
    - `your-domain.com`
+8. If production login still redirects or fails on browsers with blocked third-party storage, follow Firebase's redirect-domain guidance for your hosting setup. Firebase Hosting custom domains can use the app's custom domain as `authDomain`; non-Firebase hosts may need a reverse proxy or another supported redirect option.
 
 Official references:
 
