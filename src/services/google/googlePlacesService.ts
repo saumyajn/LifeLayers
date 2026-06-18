@@ -7,7 +7,14 @@ import {
   priceFromGoogle,
   radiusMilesToMeters,
 } from "../../lib/lifelayers";
-import { getGoogleMaps, importGoogleLibrary } from "./googleMapsLoader";
+import { getGoogleMaps, importGoogleLibrary, logGoogleDevError } from "./googleMapsLoader";
+import {
+  buildGooglePlacesCacheKey,
+  clearGooglePlacesCache,
+  deleteCachedGooglePlacesSearch,
+  getCachedGooglePlacesSearch,
+  setCachedGooglePlacesSearch,
+} from "./googlePlacesCache";
 import type {
   GoogleNewPlaceLike,
   GooglePlacePhotoLike,
@@ -16,10 +23,9 @@ import type {
   GooglePlacesSearchInput,
   GooglePlacesSearchResult,
   GoogleSearchSpec,
-} from "./placeTypes";
-import { readLatLng } from "./placeTypes";
+} from "./googlePlaceTypes";
+import { readLatLng } from "./googlePlaceTypes";
 
-const PLACES_CACHE_TTL_MS = 2 * 60 * 1000;
 const NEW_PLACE_FIELDS = [
   "id",
   "displayName",
@@ -34,14 +40,6 @@ const NEW_PLACE_FIELDS = [
   "regularOpeningHours",
   "currentOpeningHours",
 ];
-
-const placesCache = new Map<
-  string,
-  {
-    expiresAt: number;
-    promise: Promise<GooglePlacesSearchResult>;
-  }
->();
 
 export function createSearchSpecs({
   activeCity,
@@ -154,28 +152,6 @@ export function createSearchSpecs({
   );
 }
 
-export function buildPlacesCacheKey(specs: GoogleSearchSpec[]) {
-  return specs
-    .map((spec) =>
-      [
-        spec.city,
-        spec.layer,
-        spec.query,
-        spec.searchTag ?? "",
-        spec.center.lat.toFixed(4),
-        spec.center.lng.toFixed(4),
-        spec.radius,
-        spec.limit,
-      ].join(":"),
-    )
-    .sort()
-    .join("|");
-}
-
-export function clearPlacesCache() {
-  placesCache.clear();
-}
-
 export async function searchGooglePlaces(
   input: GooglePlacesSearchInput,
 ): Promise<GooglePlacesSearchResult> {
@@ -192,22 +168,17 @@ export async function searchGooglePlaces(
     };
   }
 
-  const cacheKey = buildPlacesCacheKey(specs);
-  const cached = placesCache.get(cacheKey);
-  if (cached && cached.expiresAt > Date.now()) {
-    return cached.promise;
-  }
+  const cacheKey = buildGooglePlacesCacheKey(specs);
+  const cached = getCachedGooglePlacesSearch(cacheKey);
+  if (cached) return cached;
 
   const promise = runGooglePlacesSearch(specs);
-  placesCache.set(cacheKey, {
-    expiresAt: Date.now() + PLACES_CACHE_TTL_MS,
-    promise,
-  });
+  setCachedGooglePlacesSearch(cacheKey, promise);
 
   try {
     return await promise;
   } catch (error) {
-    placesCache.delete(cacheKey);
+    deleteCachedGooglePlacesSearch(cacheKey);
     throw error;
   }
 }
@@ -223,14 +194,25 @@ async function runGooglePlacesSearch(specs: GoogleSearchSpec[]): Promise<GoogleP
         : "No Google Places returned for this layer. Showing curated fallback.",
     };
   } catch (error) {
-    const legacyPlaces = await searchWithLegacyPlacesService(specs);
-    return {
-      places: legacyPlaces,
-      source: "legacy",
-      message: legacyPlaces.length
-        ? "Live Google Places results loaded through the legacy compatibility layer."
-        : getPlacesErrorMessage(error),
-    };
+    logGoogleDevError("Google Places Place.searchByText failed; trying legacy fallback.", error);
+
+    try {
+      const legacyPlaces = await searchWithLegacyPlacesService(specs);
+      return {
+        places: legacyPlaces,
+        source: "legacy",
+        message: legacyPlaces.length
+          ? "Live Google Places results loaded through the legacy compatibility layer."
+          : getPlacesErrorMessage(error),
+      };
+    } catch (legacyError) {
+      logGoogleDevError("Google Places legacy fallback failed.", legacyError);
+      return {
+        places: [],
+        source: "empty",
+        message: getPlacesErrorMessage(legacyError),
+      };
+    }
   }
 }
 
@@ -559,6 +541,12 @@ function getPlacesStatusMessage(status: string) {
   if (status === "ZERO_RESULTS") {
     return "No Google Places returned for this layer. Showing curated fallback.";
   }
+  if (status === "INVALID_REQUEST") {
+    return "Google Places received an invalid request. Showing curated fallback.";
+  }
+  if (status === "UNKNOWN_ERROR") {
+    return "Google Places had a temporary error. Showing curated fallback.";
+  }
   return `Google Places returned ${status || "an unknown status"}. Showing curated fallback.`;
 }
 
@@ -567,12 +555,14 @@ function getPlacesErrorMessage(error: unknown) {
   if (message.includes("REQUEST_DENIED")) return getPlacesStatusMessage("REQUEST_DENIED");
   if (message.includes("OVER_QUERY_LIMIT")) return getPlacesStatusMessage("OVER_QUERY_LIMIT");
   if (message.includes("ZERO_RESULTS")) return getPlacesStatusMessage("ZERO_RESULTS");
+  if (message.includes("INVALID_REQUEST")) return getPlacesStatusMessage("INVALID_REQUEST");
+  if (message.includes("UNKNOWN_ERROR")) return getPlacesStatusMessage("UNKNOWN_ERROR");
   return message;
 }
 
-export const testablePlacesService = {
-  buildPlacesCacheKey,
-  clearPlacesCache,
+export const testableGooglePlacesService = {
+  buildGooglePlacesCacheKey,
+  clearGooglePlacesCache,
   createSearchSpecs,
   placeFromGooglePlace,
 };

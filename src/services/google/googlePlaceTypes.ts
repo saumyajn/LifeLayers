@@ -51,8 +51,13 @@ export type GoogleAdvancedMarkerLike = {
   addListener?: (eventName: string, handler: () => void) => GoogleMapsListener;
 };
 
+export type GoogleLegacyMarkerLike = {
+  setMap: (map: GoogleMapLike | null) => void;
+  addListener?: (eventName: string, handler: () => void) => GoogleMapsListener;
+};
+
 export type ManagedGoogleMarker = {
-  marker: GoogleAdvancedMarkerLike;
+  marker: GoogleAdvancedMarkerLike | GoogleLegacyMarkerLike;
   listeners: GoogleMapsListener[];
 };
 

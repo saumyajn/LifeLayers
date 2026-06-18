@@ -1,4 +1,4 @@
-import type { GoogleMapsListener } from "./placeTypes";
+import type { GoogleMapsListener } from "./googlePlaceTypes";
 
 type GoogleMapsNamespace = {
   maps?: {
@@ -44,6 +44,16 @@ type LifeLayersGoogleWindow = Window & {
 };
 
 const GOOGLE_MAPS_TIMEOUT_MS = 9000;
+const REQUIRED_GOOGLE_LIBRARIES = ["maps", "places", "marker"] as const;
+
+export type GoogleMapsLoadResult =
+  | {
+      ok: true;
+    }
+  | {
+      ok: false;
+      message: string;
+    };
 
 export function getGoogleMaps() {
   const google = (window as LifeLayersGoogleWindow).google;
@@ -103,6 +113,20 @@ export function loadGoogleMaps(apiKey: string) {
   return win.lifeLayersGooglePromise;
 }
 
+export async function loadGoogleMapsSafely(apiKey: string): Promise<GoogleMapsLoadResult> {
+  try {
+    await loadGoogleMaps(apiKey);
+    await ensureGoogleMapsLibraries();
+    return { ok: true };
+  } catch (error) {
+    logGoogleDevError("Google Maps load failed.", error);
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : "Google Maps failed to load.",
+    };
+  }
+}
+
 export async function importGoogleLibrary<TLibrary>(libraryName: string): Promise<TLibrary> {
   const google = getGoogleMaps();
   const importLibrary = google.maps?.importLibrary;
@@ -112,6 +136,19 @@ export async function importGoogleLibrary<TLibrary>(libraryName: string): Promis
   }
 
   return (await importLibrary(libraryName)) as TLibrary;
+}
+
+export async function ensureGoogleMapsLibraries() {
+  await Promise.all(
+    REQUIRED_GOOGLE_LIBRARIES.map((libraryName) => importGoogleLibrary(libraryName)),
+  );
+}
+
+export function logGoogleDevError(message: string, error: unknown) {
+  if (!import.meta.env.DEV) return;
+
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  console.warn(`[LifeLayers Google] ${message}`, errorMessage);
 }
 
 export async function geocodeAddress(apiKey: string, address: string) {

@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { loadGoogleMaps } from "./googleMapsLoader";
-import { searchGooglePlaces, testablePlacesService } from "./placesService";
+import { searchGooglePlaces, testableGooglePlacesService } from "./googlePlacesService";
 
-describe("placesService", () => {
+describe("googlePlacesService", () => {
   it("builds stable cache keys regardless of spec order", () => {
-    const specs = testablePlacesService.createSearchSpecs({
+    const specs = testableGooglePlacesService.createSearchSpecs({
       activeCity: "all",
       activeLayer: "eat",
       liveSearchQuery: "",
@@ -12,15 +12,15 @@ describe("placesService", () => {
       searchRadiusMiles: 25,
     });
 
-    const forward = testablePlacesService.buildPlacesCacheKey(specs);
-    const reversed = testablePlacesService.buildPlacesCacheKey([...specs].reverse());
+    const forward = testableGooglePlacesService.buildGooglePlacesCacheKey(specs);
+    const reversed = testableGooglePlacesService.buildGooglePlacesCacheKey([...specs].reverse());
 
     expect(forward).toBe(reversed);
     expect(forward).toContain("restaurants");
   });
 
   it("normalizes Place API results into the LifeLayers place model", async () => {
-    const place = await testablePlacesService.placeFromGooglePlace(
+    const place = await testableGooglePlacesService.placeFromGooglePlace(
       {
         id: "abc123",
         displayName: "Test Cafe",

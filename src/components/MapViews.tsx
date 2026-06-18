@@ -14,14 +14,14 @@ import {
   type LiveStatus,
   type UserLocation,
 } from "../lib/lifelayers";
-import { getGoogleMaps, loadGoogleMaps } from "../services/google/googleMapsLoader";
+import { getGoogleMaps, loadGoogleMapsSafely } from "../services/google/googleMapsLoader";
 import {
-  clearAdvancedPlaceMarkers,
-  createAdvancedPlaceMarkers,
-} from "../services/google/markerService";
-import { searchGooglePlaces } from "../services/google/placesService";
-import type { GoogleMapLike, ManagedGoogleMarker } from "../services/google/placeTypes";
-import { readLatLng } from "../services/google/placeTypes";
+  clearGooglePlaceMarkers,
+  createGooglePlaceMarkers,
+} from "../services/google/googleMarkers";
+import { searchGooglePlaces } from "../services/google/googlePlacesService";
+import type { GoogleMapLike, ManagedGoogleMarker } from "../services/google/googlePlaceTypes";
+import { readLatLng } from "../services/google/googlePlaceTypes";
 export function RealMap({
   activeCity,
   neighborhoods,
@@ -247,9 +247,13 @@ export function GoogleLiveMap({
     setMapsReady(false);
     setMapError("");
 
-    loadGoogleMaps(apiKey)
-      .then(() => {
+    loadGoogleMapsSafely(apiKey)
+      .then((result) => {
         if (cancelled || !mapNodeRef.current) return;
+        if (!result.ok) {
+          throw new Error(result.message);
+        }
+
         const google = getGoogleMaps();
         const MapConstructor = google.maps?.Map;
         if (!MapConstructor) {
@@ -435,10 +439,10 @@ export function GoogleLiveMap({
     if (!mapsReady || !mapRef.current) return;
 
     let cancelled = false;
-    clearAdvancedPlaceMarkers(markersRef.current);
+    clearGooglePlaceMarkers(markersRef.current);
     markersRef.current = [];
 
-    createAdvancedPlaceMarkers({
+    createGooglePlaceMarkers({
       map: mapRef.current,
       places: visiblePlaces,
       selectedPlaceId: selectedPlace.id,
@@ -446,7 +450,7 @@ export function GoogleLiveMap({
     })
       .then((markers) => {
         if (cancelled) {
-          clearAdvancedPlaceMarkers(markers);
+          clearGooglePlaceMarkers(markers);
           return;
         }
 
@@ -463,7 +467,7 @@ export function GoogleLiveMap({
 
     return () => {
       cancelled = true;
-      clearAdvancedPlaceMarkers(markersRef.current);
+      clearGooglePlaceMarkers(markersRef.current);
       markersRef.current = [];
     };
   }, [visiblePlaces, selectedPlace.id, mapsReady, onPickPlace, onStatus]);
