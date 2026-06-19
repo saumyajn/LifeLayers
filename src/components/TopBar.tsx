@@ -1,5 +1,6 @@
 import type { CityId } from "../data/places";
 import type { UserLocation } from "../lib/lifelayers";
+import { InlineStatus, PermissionState } from "./common";
 
 type TopBarProps = {
   activeCity: CityId;
@@ -38,6 +39,8 @@ export function TopBar({
   const canSaveLocation =
     Boolean(userLocation) &&
     !savedLocations.some((location) => location.id && location.id === userLocation?.id);
+  const hasLocationIssue =
+    !userLocation && /blocked|denied|not supported|failed/i.test(locationStatus);
 
   return (
     <section className="topbar" aria-label="LifeLayers controls">
@@ -122,12 +125,25 @@ export function TopBar({
         </button>
       </div>
 
-      <div className="location-status">
-        <span>{userLocation ? userLocation.label : locationStatus}</span>
-        <button type="button" onClick={onUseCurrentLocation}>
-          Precise location
-        </button>
-      </div>
+      {hasLocationIssue ? (
+        <PermissionState
+          className="location-status"
+          title="Location needs permission"
+          description={`${locationStatus} Search for a city above or try precise location again.`}
+          actionLabel="Precise location"
+          onAction={onUseCurrentLocation}
+        />
+      ) : (
+        <div className="location-status">
+          <InlineStatus
+            message={userLocation ? userLocation.label : locationStatus}
+            variant={findingLocation ? "info" : userLocation ? "success" : "warning"}
+          />
+          <button type="button" onClick={onUseCurrentLocation}>
+            Precise location
+          </button>
+        </div>
+      )}
     </section>
   );
 }

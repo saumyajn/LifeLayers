@@ -1,6 +1,7 @@
 import type { CSSProperties, Ref } from "react";
 import type { LayerId, Neighborhood, Place } from "../data/places";
 import { layers } from "../data/places";
+import { EmptyState, InlineStatus, LoadingState } from "./common";
 import { layerColor, type LiveStatus, type PlanPreset } from "../lib/lifelayers";
 
 export function LiveSourceBar({ status }: { status: LiveStatus }) {
@@ -118,6 +119,10 @@ export function ResultsBoard({
   resultListRef,
   loading,
   loadingLabel,
+  emptyTitle = "No places match those filters.",
+  emptyDescription = "Try clearing one filter or picking a broader planning preset.",
+  emptyActionLabel,
+  onEmptyAction,
   onPick,
   onSave,
 }: {
@@ -127,6 +132,10 @@ export function ResultsBoard({
   resultListRef?: Ref<HTMLElement>;
   loading: boolean;
   loadingLabel: string;
+  emptyTitle?: string;
+  emptyDescription?: string;
+  emptyActionLabel?: string;
+  onEmptyAction?: () => void;
   onPick: (place: Place) => void;
   onSave: (place: Place) => void;
 }) {
@@ -146,10 +155,14 @@ export function ResultsBoard({
       </div>
 
       {loading && (
-        <div className="results-loading" role="status">
-          <span className="mini-spinner" aria-hidden="true" />
-          <strong>{loadingLabel}</strong>
-        </div>
+        <LoadingState
+          className="results-loading"
+          title={loadingLabel}
+          description={
+            visiblePlaces.length ? undefined : "Google Places is checking this filter set now."
+          }
+          variant="inline"
+        />
       )}
 
       {visiblePlaces.length ? (
@@ -198,15 +211,14 @@ export function ResultsBoard({
             );
           })}
         </div>
-      ) : (
-        <div className={loading ? "empty-results loading-empty" : "empty-results"}>
-          <strong>{loading ? "Refreshing places..." : "No places match those filters."}</strong>
-          <p>
-            {loading
-              ? "Google Places is checking this filter combination now."
-              : "Try clearing one filter or picking a broader planning preset."}
-          </p>
-        </div>
+      ) : loading ? null : (
+        <EmptyState
+          className="empty-results"
+          title={emptyTitle}
+          description={emptyDescription}
+          actionLabel={emptyActionLabel}
+          onAction={onEmptyAction}
+        />
       )}
     </section>
   );
@@ -343,9 +355,11 @@ export function MapToolbar({
         </div>
       </div>
 
-      <div className="status-toast" aria-live="polite">
-        {actionStatus || "Ready for live discovery."}
-      </div>
+      <InlineStatus
+        className="status-toast"
+        message={actionStatus || "Ready for live discovery."}
+        variant={actionStatus ? "info" : "success"}
+      />
     </>
   );
 }

@@ -28,7 +28,7 @@ export function useLocationPlanner({
   const requestBrowserLocation = useCallback(
     (manual = false, precise = true) => {
       if (!("geolocation" in navigator)) {
-        setLocationStatus("Location is not supported in this browser.");
+        setLocationStatus("Location is not supported in this browser. Search for a city instead.");
         if (manual) setActionStatus("This browser does not support location sharing.");
         return;
       }
@@ -56,9 +56,9 @@ export function useLocationPlanner({
           setActionStatus("LifeLayers is searching near your location.");
         },
         () => {
-          setLocationStatus("Location blocked. Showing fallback places.");
+          setLocationStatus("Location permission denied. Showing fallback places.");
           setActiveCity("all");
-          if (manual) setActionStatus("Location permission was blocked.");
+          if (manual) setActionStatus("Location permission was denied.");
         },
         {
           enableHighAccuracy: precise,

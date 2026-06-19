@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import type { Place } from "../data/places";
 import type { LifeLayersUser } from "../features/auth/authTypes";
 import { layerColor } from "../lib/lifelayers";
+import { InlineStatus, ServiceUnavailableState } from "./common";
 
 type PlaceDetailProps = {
   place: Place;
@@ -36,6 +37,10 @@ export function PlaceDetail({
   onSubmitReview,
   onRequestSignIn,
 }: PlaceDetailProps) {
+  const reviewStatusVariant = /failed|denied|unavailable|error/i.test(reviewStatus)
+    ? "error"
+    : "success";
+
   return (
     <article className="place-detail">
       <div
@@ -165,7 +170,20 @@ export function PlaceDetail({
             >
               {reviewSubmitting ? "Saving..." : "Save review"}
             </button>
-            {reviewStatus && <small className="review-status">{reviewStatus}</small>}
+            {!firebaseConfigured && (
+              <ServiceUnavailableState
+                className="review-status"
+                service="Firebase"
+                description="Review saving needs Firebase configuration before launch."
+              />
+            )}
+            {reviewStatus && (
+              <InlineStatus
+                className="review-status"
+                message={reviewStatus}
+                variant={reviewStatusVariant}
+              />
+            )}
           </div>
         ) : (
           <div className="review-signin">
@@ -176,7 +194,13 @@ export function PlaceDetail({
             >
               Sign in to review
             </button>
-            {!firebaseConfigured && <small>Firebase is not configured yet.</small>}
+            {!firebaseConfigured && (
+              <ServiceUnavailableState
+                className="review-status"
+                service="Firebase"
+                description="Google sign-in and Firestore reviews need Firebase env values."
+              />
+            )}
           </div>
         )}
       </section>

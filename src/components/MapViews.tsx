@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import type { CityId, LayerId, Neighborhood, Place } from "../data/places";
 import { layers } from "../data/places";
+import { LoadingState, ServiceUnavailableState } from "./common";
 import {
   clampZoom,
   getErrorMessage,
@@ -517,11 +518,20 @@ export function GoogleLiveMap({
       <div className="google-map" ref={mapNodeRef} />
       {!mapsReady && (
         <div className="map-loading-overlay">
-          <strong>{mapError ? "Google Maps unavailable" : "Loading Google Maps"}</strong>
-          <span>
-            {mapError ||
-              "If this stays here, check API referrers, billing, Maps JavaScript API, and Places API."}
-          </span>
+          {mapError ? (
+            <ServiceUnavailableState
+              service="Google Maps"
+              description={mapError}
+              className="map-state"
+            />
+          ) : (
+            <LoadingState
+              title="Loading Google Maps"
+              description="Checking Maps JavaScript API, Places, billing, and referrer access."
+              variant="overlay"
+              className="map-state"
+            />
+          )}
         </div>
       )}
       <div className="google-map-badge">Google Maps + Places</div>

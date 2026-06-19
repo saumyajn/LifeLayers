@@ -1,4 +1,5 @@
 import type { LifeLayersUser } from "../features/auth/authTypes";
+import { ServiceUnavailableState } from "./common";
 
 type AccountPanelProps = {
   user: LifeLayersUser | null;
@@ -43,12 +44,16 @@ export function AccountPanel({
             <em>{preferencesReady ? "Preferences syncing" : "Loading preferences"}</em>
           </div>
         </div>
-      ) : (
+      ) : configured ? (
         <p className="account-copy">
-          {configured
-            ? "Sign in to carry saved places, filters, and reviews across sessions."
-            : "Add Firebase env values to enable Google login and Firestore saves."}
+          Sign in to carry saved places, filters, and reviews across sessions.
         </p>
+      ) : (
+        <ServiceUnavailableState
+          className="account-copy"
+          service="Firebase"
+          description="Add Firebase env values to enable Google login, Firestore saves, and review sync."
+        />
       )}
 
       <button

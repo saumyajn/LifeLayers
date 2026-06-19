@@ -197,6 +197,53 @@ function App() {
   const placesLoadingLabel = filters.effectiveLiveSearchQuery
     ? `Loading "${filters.effectiveLiveSearchQuery}"`
     : "Refreshing live places";
+  const resultsEmptyState = useMemo(() => {
+    if (filters.savedOnly && !savedPlaces.length) {
+      return {
+        title: "No saved places yet",
+        description:
+          "Turn off Saved only or save a place from the directory to build an itinerary.",
+        actionLabel: "Show all places",
+        onAction: () => filters.setSavedOnly(false),
+      };
+    }
+
+    if (!googleApiKey && filters.liveSearchQuery) {
+      return {
+        title: "Google Places search is not configured",
+        description:
+          "Add VITE_GOOGLE_MAPS_API_KEY to enable live search. Curated LifeLayers places still work.",
+        actionLabel: "Clear live search",
+        onAction: filters.clearLiveGoogleSearch,
+      };
+    }
+
+    if (googleApiKey && !googleMapAvailable) {
+      return {
+        title: "Live Google results are unavailable",
+        description:
+          "LifeLayers is showing curated fallback results. Check API key referrers, billing, and enabled Google APIs.",
+        actionLabel: "Clear filters",
+        onAction: filters.resetFilters,
+      };
+    }
+
+    if (filters.activeFilterChips.length || filters.activePresetLabel) {
+      return {
+        title: "No places match the active filters",
+        description: "Clear a filter, widen the distance, or choose a broader layer option.",
+        actionLabel: "Clear filters",
+        onAction: filters.resetFilters,
+      };
+    }
+
+    return {
+      title: "No places in this map area yet",
+      description: "Move the map, increase distance, or search a city to refresh the place list.",
+      actionLabel: "Use precise location",
+      onAction: () => location.requestBrowserLocation(true),
+    };
+  }, [filters, googleMapAvailable, location, savedPlaces.length]);
 
   const runQuickSearch = useCallback(
     (search: string) => {
@@ -382,6 +429,10 @@ function App() {
               resultListRef={resultListRef}
               loading={placesAreRefreshing}
               loadingLabel={placesLoadingLabel}
+              emptyTitle={resultsEmptyState.title}
+              emptyDescription={resultsEmptyState.description}
+              emptyActionLabel={resultsEmptyState.actionLabel}
+              onEmptyAction={resultsEmptyState.onAction}
               onPick={(place) => selected.setSelectedId(place.id)}
               onSave={(place) => saved.toggleSaved(place.id)}
             />

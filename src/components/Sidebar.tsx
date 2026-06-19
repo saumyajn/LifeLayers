@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import type { CityId, LayerId, Place } from "../data/places";
 import { layers } from "../data/places";
 import { AccountPanel } from "./AccountPanel";
+import { EmptyState } from "./common";
 import type { LifeLayersUser } from "../features/auth/authTypes";
 import {
   cityMatches,
@@ -241,7 +242,12 @@ export function Sidebar({
               </button>
             ))
           ) : (
-            <p className="empty-copy">Save a spot to start a night plan.</p>
+            <EmptyState
+              className="empty-copy"
+              title="No saved places yet"
+              description="Save places from the list or map to build an itinerary."
+              variant="compact"
+            />
           )}
         </div>
       </div>
